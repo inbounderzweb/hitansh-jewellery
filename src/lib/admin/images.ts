@@ -10,8 +10,9 @@ import { destroyImages } from '@/lib/cloudinary';
 export async function destroyIfUnused(publicIds: (string | undefined)[]) {
 	const candidates = [...new Set(publicIds.filter((x): x is string => !!x))];
 	if (!candidates.length) return;
-	const { products, collections, bannerRings, heroSlides } = await db();
-	const [inProducts, inCollections, inBanner, inHero, inSpin] =
+	const { products, collections, bannerRings, heroSlides, homeSections } =
+		await db();
+	const [inProducts, inCollections, inBanner, inHero, inSpin, inSections] =
 		await Promise.all([
 			products.distinct('images.publicId', {
 				'images.publicId': { $in: candidates },
@@ -28,6 +29,9 @@ export async function destroyIfUnused(publicIds: (string | undefined)[]) {
 			heroSlides.distinct('spin.publicId', {
 				'spin.publicId': { $in: candidates },
 			}),
+			homeSections.distinct('spin.publicId', {
+				'spin.publicId': { $in: candidates },
+			}),
 		]);
 	const used = new Set<unknown>([
 		...inProducts,
@@ -35,6 +39,7 @@ export async function destroyIfUnused(publicIds: (string | undefined)[]) {
 		...inBanner,
 		...inHero,
 		...inSpin,
+		...inSections,
 	]);
 	await destroyImages(candidates.filter((id) => !used.has(id)));
 }

@@ -93,6 +93,20 @@ export type MetaDoc = {
 	initialisedAt: Date;
 };
 
+/** The home page's "Making" section (a single document). */
+export type MakingDoc = {
+	_id: 'making';
+	visible: boolean;
+	eyebrow: string;
+	heading: string;
+	/** Titles of the four craft stages, in order. */
+	stages: string[];
+	/** `banner`: the 3D banner's first 360° ring; `own`: `spin` below. */
+	source: 'banner' | 'own';
+	spin: ImageAsset[];
+	updatedAt: Date;
+};
+
 /** One ring image in the home page's scrolling four-ring banner. */
 export type BannerRingDoc = {
 	_id: ObjectId;

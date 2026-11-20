@@ -20,7 +20,7 @@ const Arrow = () => (
  * Collections as editorial "chapters".
  *
  * Desktop: a sticky index on the left (rolling numeral, chapter titles,
- * the active chapter's description) follows three tall frames scrolling on
+ * the active chapter's description) follows the frames (all the same size, images shown whole) scrolling on
  * the right; whichever frame crosses the viewport centre becomes active.
  * Phones: the frames stack, each with its own caption.
  *
@@ -76,28 +76,6 @@ export default function Collections({
 						},
 					},
 				);
-		});
-
-		// Slow drift of each photograph inside its frame.
-		mm.add('(prefers-reduced-motion: no-preference)', () => {
-			root.querySelectorAll<HTMLElement>('.chapter__drift').forEach(
-				(drift) => {
-					gsap.fromTo(
-						drift,
-						{ yPercent: -7 },
-						{
-							yPercent: 7,
-							ease: 'none',
-							scrollTrigger: {
-								trigger: drift.parentElement,
-								start: 'top bottom',
-								end: 'bottom top',
-								scrub: true,
-							},
-						},
-					);
-				},
-			);
 		});
 
 		return () => mm.revert();

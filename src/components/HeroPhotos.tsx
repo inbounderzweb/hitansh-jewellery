@@ -3,7 +3,11 @@
 import { useEffect, useRef } from 'react';
 import type { HeroRingSlide } from '@/lib/ringController';
 import CatalogueImage from '@/components/catalogue/CatalogueImage';
-import { cloudinaryUrl, isCloudinaryUrl } from '@/lib/images';
+import {
+	SPIN_SIZE,
+	loadSpinFrames as loadFrames,
+	nearestFrame as nearest,
+} from '@/lib/spin/frames';
 
 const clamp = (v: number, min: number, max: number) =>
 	Math.min(max, Math.max(min, v));
@@ -13,42 +17,6 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 /** Same slide hand-over envelope as the 3D ring (see setupViewer). */
 const ENTER = 0.16;
 const EXIT = 0.84;
-/** Spin frames are delivered at this width (they are square). */
-const SPIN_SIZE = 1000;
-
-const frameUrl = (url: string) =>
-	isCloudinaryUrl(url) ? cloudinaryUrl(url, { width: SPIN_SIZE }) : url;
-
-/** Loads a spin's frames: the first at once, the rest in the background. */
-function loadFrames(urls: string[], onFirst: () => void) {
-	const frames = urls.map(() => null as HTMLImageElement | null);
-	let cancelled = false;
-	const load = (i: number) =>
-		new Promise<void>((resolve) => {
-			const img = new Image();
-			img.decoding = 'async';
-			img.onload = () => {
-				if (!cancelled) frames[i] = img;
-				resolve();
-			};
-			img.onerror = () => resolve();
-			img.src = frameUrl(urls[i]);
-		});
-	void (async () => {
-		await load(0);
-		if (cancelled) return;
-		onFirst();
-		// Coarse pass first (every 8th frame), then fill in — the ring can
-		// turn early with a rougher step while the rest arrive.
-		const order = [
-			...urls.map((_, i) => i).filter((i) => i % 8 === 0 && i),
-			...urls.map((_, i) => i).filter((i) => i % 8 !== 0),
-		];
-		for (let k = 0; k < order.length && !cancelled; k += 6)
-			await Promise.all(order.slice(k, k + 6).map(load));
-	})();
-	return { frames, cancel: () => (cancelled = true) };
-}
 
 type Spin = {
 	canvas: HTMLCanvasElement;
@@ -60,18 +28,6 @@ type Spin = {
 	frames: (HTMLImageElement | null)[];
 	cancel: () => void;
 };
-
-/** Nearest loaded frame to `i` (frames wrap around). */
-function nearest(frames: (HTMLImageElement | null)[], i: number) {
-	const n = frames.length;
-	for (let d = 0; d < n; d++) {
-		const a = frames[(((i + d) % n) + n) % n];
-		if (a) return a;
-		const b = frames[(((i - d) % n) + n) % n];
-		if (b) return b;
-	}
-	return null;
-}
 
 /**
  * Photo and 360° spin slides of the hero banner, standing in for the 3D model:

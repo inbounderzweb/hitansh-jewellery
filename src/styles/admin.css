@@ -1368,6 +1368,73 @@ select.a-status option {
 	object-fit: contain;
 }
 
+/* Making section preview */
+.a-making {
+	display: grid;
+	justify-items: center;
+	gap: 0.5rem;
+	padding: 1.25rem 0.75rem;
+	border-radius: 8px;
+	text-align: center;
+	background:
+		radial-gradient(
+			60% 50% at 50% 70%,
+			rgba(212, 176, 106, 0.14),
+			transparent 70%
+		),
+		var(--navy);
+}
+.a-making__eyebrow {
+	margin: 0;
+	font-size: 0.62rem;
+	letter-spacing: 0.24em;
+	text-transform: uppercase;
+	color: var(--gold);
+	overflow-wrap: anywhere;
+}
+.a-making__heading {
+	margin: 0;
+	font-family: var(--font-serif);
+	font-size: 1.15rem;
+	line-height: 1.2;
+	overflow-wrap: anywhere;
+}
+.a-making__heading em {
+	color: var(--gold);
+}
+.a-making__rings {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.35rem;
+	width: 100%;
+	margin-top: 0.5rem;
+}
+.a-making__ring {
+	display: grid;
+	justify-items: center;
+	gap: 0.15rem;
+	min-width: 0;
+}
+.a-making__img {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 1;
+}
+.a-making__img img {
+	object-fit: contain;
+}
+.a-making__num {
+	font-size: 0.55rem;
+	letter-spacing: 0.2em;
+	color: var(--gold);
+}
+.a-making__stage {
+	max-width: 100%;
+	font-family: var(--font-serif);
+	font-size: 0.85rem;
+	overflow-wrap: anywhere;
+}
+
 /* 360° spin maker */
 .a-spin {
 	display: grid;

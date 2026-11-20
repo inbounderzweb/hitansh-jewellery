@@ -139,6 +139,13 @@ How it fits together:
     Choose **Import current slides** there first; until then the built-in
     slides are shown.
 
+- **Making section:** Admin → Making section manages the sticky section
+  after the brand story (`#making`, `src/components/editorial/RingAtelier.tsx`,
+  stored as `homeSections` `_id: "making"`): one ring turns centre stage, then
+  splits into four rings labelled with four craft stages. Set the ring (the 3D
+  banner's first 360° slide, or its own 360° video), the small line, the
+  heading (`*words*` in gold italics), the four stage names, and visibility.
+  Until it is saved there it shows the banner's 360° ring with built-in text.
 - **Ring showcase:** Admin → Ring showcase manages the four-ring photo
   section further down (`#quartet`). Its animation is designed for exactly four rings, so it
   shows the first four visible rings in the list order; extra rings wait as
