@@ -1,0 +1,83 @@
+/* ==========================================================================
+   Hitansh Fine Jewellery — design tokens
+   ========================================================================== */
+
+:root {
+	/* Brand colours */
+	--navy: #0e192d; /* Midnight Navy — primary background */
+	--navy-950: #08101f;
+	--navy-900: #0b1426;
+	--navy-800: #121f36;
+	--navy-700: #1a2a46;
+	--navy-600: #24375a;
+
+	--gold: #d4b06a; /* Champagne Gold — primary accent */
+	--gold-light: #ecdcb2;
+	--gold-pale: #f5ecd6;
+	--gold-deep: #a9843f;
+	--gold-shadow: #7d5f2a;
+
+	--ivory: #f8f4ec;
+	--ivory-muted: rgba(248, 244, 236, 0.88);
+	--ivory-faint: rgba(248, 244, 236, 0.64);
+
+	--line: rgba(212, 176, 106, 0.22);
+	--line-strong: rgba(212, 176, 106, 0.45);
+	--line-ivory: rgba(244, 239, 230, 0.12);
+
+	/* Metallic gradients */
+	--gold-gradient: linear-gradient(
+		115deg,
+		var(--gold-deep) 0%,
+		var(--gold) 28%,
+		var(--gold-pale) 48%,
+		var(--gold) 62%,
+		var(--gold-shadow) 100%
+	);
+	--gold-sheen: linear-gradient(
+		100deg,
+		transparent 30%,
+		rgba(245, 236, 214, 0.55) 50%,
+		transparent 70%
+	);
+
+	/* Typography */
+	--font-serif: var(--font-display), 'Cormorant Garamond', Georgia, serif;
+	--font-ui: var(--font-sans), 'Helvetica Neue', Arial, sans-serif;
+
+	--text-xs: 0.6875rem; /* 11 */
+	--text-sm: 0.8125rem; /* 13 */
+	--text-base: 1rem;
+	--text-md: 1.125rem;
+	--text-lg: clamp(1.25rem, 1.05rem + 0.6vw, 1.5rem);
+	--display-sm: clamp(2rem, 1.4rem + 2.2vw, 3.25rem);
+	--display-md: clamp(2.6rem, 1.6rem + 3.6vw, 4.75rem);
+	--display-lg: clamp(3.1rem, 1.6rem + 5.4vw, 7rem);
+	--display-xl: clamp(4rem, 1rem + 11vw, 12.5rem);
+
+	--tracking-caps: 0.28em;
+
+	/* Layout */
+	--gutter: clamp(1.25rem, 0.6rem + 2.6vw, 3.5rem);
+	--section-y: clamp(5.5rem, 3rem + 9vw, 11rem);
+	--max-width: 1440px;
+	--header-h: 84px;
+
+	/* Motion */
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
+	--ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+	--dur-fast: 0.35s;
+	--dur: 0.7s;
+	--dur-slow: 1.2s;
+
+	--radius-pill: 999px;
+	--shadow-deep: 0 40px 80px -30px rgba(3, 7, 15, 0.8);
+}
+
+@media (max-width: 760px) {
+	:root {
+		--header-h: 68px;
+		--tracking-caps: 0.24em;
+	}
+}
