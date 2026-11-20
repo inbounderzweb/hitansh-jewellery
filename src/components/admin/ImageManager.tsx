@@ -11,8 +11,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/avif';
 
 /** Send one file straight to Cloudinary using a server-issued signature. */
-async function uploadToCloudinary(
-	file: File,
+export async function uploadToCloudinary(
+	file: Blob,
 	sig: UploadSignature,
 ): Promise<ImageAsset> {
 	const body = new FormData();

@@ -8,6 +8,7 @@ import {
 	scrollToTarget,
 } from '@/lib/scroll';
 import { selectProductFilter } from '@/components/editorial/filterEvents';
+import HeroPhotos from '@/components/HeroPhotos';
 
 const Arrow = () => (
 	<svg viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -114,6 +115,9 @@ export default function Sections({ slides }: { slides: HeroRingSlide[] }) {
 							/>
 						</svg>
 					</div>
+
+					{/* Photo slides: the ring's views, between backdrop and UI (z-index: 1) */}
+					<HeroPhotos slides={slides} />
 
 					{/* Foreground UI: Bottom-Left & Bottom-Right (z-index: 2) */}
 					<div className="hero-ui">
@@ -242,19 +246,22 @@ export default function Sections({ slides }: { slides: HeroRingSlide[] }) {
 											Explore Collection
 											<Arrow />
 										</button>
-										<button
-											type="button"
-											className="link hero-cta__secondary"
-											onClick={() =>
-												openInConfigurator(
-													slide.gem,
-													slide.metal,
-												)
-											}
-										>
-											Customise in 3D
-											<Arrow />
-										</button>
+										{!slide.photos?.length &&
+											!slide.spin?.length && (
+												<button
+													type="button"
+													className="link hero-cta__secondary"
+													onClick={() =>
+														openInConfigurator(
+															slide.gem,
+															slide.metal,
+														)
+													}
+												>
+													Customise in 3D
+													<Arrow />
+												</button>
+											)}
 									</div>
 								))}
 							</div>

@@ -7,6 +7,9 @@ import { collections as db } from '@/lib/db/mongo';
 import type { HeroSlideDoc } from '@/lib/db/types';
 import { CATALOGUE_TAG } from '@/lib/data/catalogue';
 import { STARTER_HERO_SLIDES } from '@/lib/hero';
+import type { ImageAsset } from '@/lib/catalogue';
+import { sanitiseImage } from '@/lib/cloudinary';
+import { destroyIfUnused } from '@/lib/admin/images';
 import { parseHeroSlide, validateHeroSlide } from '@/lib/admin/validation';
 import type { ActionResult } from './catalogue';
 
@@ -64,6 +67,13 @@ export async function saveHeroSlide(
 
 	const input = parseHeroSlide(raw);
 	const errors = validateHeroSlide(input);
+	const photos = input.photos.map(sanitiseImage);
+	if (photos.some((p) => !p))
+		errors.photos = 'A photo could not be verified. Upload it again.';
+	const spin = input.spin.map(sanitiseImage);
+	if (spin.some((f) => !f))
+		errors.spin =
+			'The spin frames could not be verified. Add the video again.';
 	if (Object.keys(errors).length)
 		return fail('Please correct the highlighted fields.', errors);
 
@@ -89,6 +99,12 @@ export async function saveHeroSlide(
 		metal: input.metal,
 		filterTarget: input.filterTarget,
 		glow: input.glow,
+		mode: input.mode,
+		photos: photos as ImageAsset[],
+		spin: (spin as ImageAsset[]).map(({ url, publicId }) => ({
+			url,
+			...(publicId && { publicId }),
+		})),
 		visible: input.visible,
 		updatedAt: now,
 	};
@@ -97,6 +113,14 @@ export async function saveHeroSlide(
 	if (existing) {
 		await heroSlides.updateOne({ _id: existing._id }, { $set: fields });
 		savedId = existing._id;
+		const kept = new Set(
+			[...fields.photos, ...fields.spin].map((p) => p.publicId),
+		);
+		await destroyIfUnused(
+			[...(existing.photos ?? []), ...(existing.spin ?? [])]
+				.map((p) => p.publicId)
+				.filter((id) => !kept.has(id)),
+		);
 	} else {
 		const last = await heroSlides
 			.find({}, { projection: { position: 1 } })
@@ -130,6 +154,9 @@ export async function deleteHeroSlide(id: string): Promise<ActionResult> {
 			'This is the only visible slide, and the 3D banner needs at least one. Make another slide visible first.',
 		);
 	await heroSlides.deleteOne({ _id });
+	await destroyIfUnused(
+		[...(slide.photos ?? []), ...(slide.spin ?? [])].map((p) => p.publicId),
+	);
 	refreshPublic();
 	return { ok: true };
 }

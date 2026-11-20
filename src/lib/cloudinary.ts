@@ -58,7 +58,12 @@ export type UploadSignature = {
 	signature: string;
 };
 
-export const UPLOAD_KINDS = ['products', 'collections', 'banner'] as const;
+export const UPLOAD_KINDS = [
+	'products',
+	'collections',
+	'banner',
+	'hero',
+] as const;
 export type UploadKind = (typeof UPLOAD_KINDS)[number];
 
 /** `kind` keeps each kind of image in its own sub-folder. */
@@ -123,50 +128,77 @@ export function sanitiseImage(input: unknown): ImageAsset | null {
 	return null;
 }
 
+/** Cloudinary rejects many concurrent deletes (HTTP 420), so go a few at a time. */
+const DESTROY_CONCURRENCY = 5;
+
 /** Permanently delete uploaded images. Failures are logged, not thrown. */
 export async function destroyImages(publicIds: string[]) {
 	const c = config();
 	if (!c) return;
-	await Promise.all(
-		[...new Set(publicIds)]
-			.filter((id) => id.startsWith(`${c.folder}/`))
-			.map(async (publicId) => {
-				const timestamp = Math.floor(Date.now() / 1000);
-				const body = new URLSearchParams({
-					public_id: publicId,
-					timestamp: String(timestamp),
-					invalidate: 'true',
-					api_key: c.apiKey,
-					signature: signParams(
-						{ invalidate: 'true', public_id: publicId, timestamp },
-						c.apiSecret,
-					),
-				});
-				try {
-					const res = await fetch(
-						`https://api.cloudinary.com/v1_1/${c.cloudName}/image/destroy`,
-						{
-							method: 'POST',
-							body,
-							signal: AbortSignal.timeout(10_000),
-						},
-					);
-					const data = (await res.json().catch(() => ({}))) as {
-						result?: string;
-					};
-					if (
-						!res.ok ||
-						(data.result !== 'ok' && data.result !== 'not found')
-					)
-						console.error(
-							'Cloudinary destroy failed',
-							publicId,
-							res.status,
-							data,
-						);
-				} catch (error) {
-					console.error('Cloudinary destroy failed', publicId, error);
+	const queue = [...new Set(publicIds)].filter((id) =>
+		id.startsWith(`${c.folder}/`),
+	);
+
+	const destroy = async (publicId: string) => {
+		for (let attempt = 0; attempt < 4; attempt++) {
+			const timestamp = Math.floor(Date.now() / 1000);
+			const body = new URLSearchParams({
+				public_id: publicId,
+				timestamp: String(timestamp),
+				invalidate: 'true',
+				api_key: c.apiKey,
+				signature: signParams(
+					{ invalidate: 'true', public_id: publicId, timestamp },
+					c.apiSecret,
+				),
+			});
+			try {
+				const res = await fetch(
+					`https://api.cloudinary.com/v1_1/${c.cloudName}/image/destroy`,
+					{
+						method: 'POST',
+						body,
+						signal: AbortSignal.timeout(10_000),
+					},
+				);
+				const data = (await res.json().catch(() => ({}))) as {
+					result?: string;
+				};
+				if (
+					res.ok &&
+					(data.result === 'ok' || data.result === 'not found')
+				)
+					return;
+				if (
+					res.status === 420 ||
+					res.status === 429 ||
+					res.status >= 500
+				) {
+					await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+					continue;
 				}
-			}),
+				console.error(
+					'Cloudinary destroy failed',
+					publicId,
+					res.status,
+					data,
+				);
+				return;
+			} catch (error) {
+				if (attempt === 3)
+					console.error('Cloudinary destroy failed', publicId, error);
+			}
+		}
+		console.error('Cloudinary destroy gave up after retries', publicId);
+	};
+
+	await Promise.all(
+		Array.from(
+			{ length: Math.min(DESTROY_CONCURRENCY, queue.length) },
+			async () => {
+				for (let id = queue.shift(); id; id = queue.shift())
+					await destroy(id);
+			},
+		),
 	);
 }

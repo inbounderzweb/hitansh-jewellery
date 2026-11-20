@@ -219,7 +219,7 @@ export async function discardUploads(publicIds: string[]): Promise<void> {
 	await requireAdmin();
 	if (!Array.isArray(publicIds)) return;
 	await destroyIfUnused(
-		publicIds.filter((id) => typeof id === 'string').slice(0, 50),
+		publicIds.filter((id) => typeof id === 'string').slice(0, 250),
 	);
 }
 

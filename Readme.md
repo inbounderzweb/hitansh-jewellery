@@ -1,9 +1,10 @@
 
-*Design by Anderson Mancini*
+_Design by Anderson Mancini_
 
 <img width="1666" alt="Screenshot 2024-03-01 at 22 58 27" src="https://github.com/kKaskak/realvwr-scroll/assets/117831817/de87f8f2-1187-481f-8ada-d9b6c2d4a5bc">
 
 ## About webgi: [https://webgi.xyz/](https://webgi.xyz/)
+
 Showcase Products in Full 3D with Incredible Details on websites and apps
 
 ## Tech stack
@@ -46,11 +47,11 @@ npm start
 
 Other scripts:
 
-| Script              | Purpose                                    |
-| ------------------- | ------------------------------------------ |
-| `npm run lint`      | ESLint (Next.js core-web-vitals + TS rules) |
-| `npm run typecheck` | TypeScript type check (`tsc --noEmit`)     |
-| `npm run format`    | Format the code with Prettier              |
+| Script              | Purpose                                           |
+| ------------------- | ------------------------------------------------- |
+| `npm run lint`      | ESLint (Next.js core-web-vitals + TS rules)       |
+| `npm run typecheck` | TypeScript type check (`tsc --noEmit`)            |
+| `npm run format`    | Format the code with Prettier                     |
 | `npm run deploy`    | Deploy to Vercel production (`npx vercel --prod`) |
 
 > Note: in the old Parcel setup `npm start` started the dev server. It now starts
@@ -99,9 +100,9 @@ enquiries. Changes appear on the public site immediately.
 2. Create an administrator (asks for a password, 12+ characters; re-run to
    reset a password, which also signs that account out everywhere):
 
-   ```bash
-   npm run admin:create -- owner@example.com "Full Name"
-   ```
+    ```bash
+    npm run admin:create -- owner@example.com "Full Name"
+    ```
 
 3. Sign in at `/admin` and choose **Import current catalogue** on the
    dashboard. Until then the website keeps showing the built-in pieces.
@@ -123,11 +124,21 @@ How it fits together:
   Cloudinary when you save. The site delivers them with `f_auto,q_auto` and
   responsive widths.
 - **3D banner:** Admin → 3D banner manages the hero slides at the top
-  (`#view1`, collection `heroSlides`): text, centre stone and metal presets
-  that recolour the one 3D ring model, glow colour, Explore target, order and
-  visibility. Up to six visible slides; at least one must stay visible. Camera
-  moves reuse the four presets in turn. Choose **Import current slides** there
-  first; until then the built-in four are shown.
+  (`#view1`, collection `heroSlides`): text, glow colour, Explore target,
+  order and visibility (up to six visible; at least one must stay visible).
+  Each slide shows one of:
+    - **360° video:** pick the ring's turntable MP4; the admin's browser cuts 72
+      frames (one per 5°), removes a white studio background, and uploads the
+      frames to Cloudinary (`src/lib/spin/fromVideo.ts`). The ring turns as
+      visitors scroll. The video itself is never uploaded.
+    - **Photos:** up to six views, crossfaded while scrolling.
+    - **3D ring model:** the built-in model recoloured with a stone and metal
+      preset (camera moves reuse the four presets in turn).
+
+    Photo and spin slides hide the 3D canvas (`src/components/HeroPhotos.tsx`).
+    Choose **Import current slides** there first; until then the built-in
+    slides are shown.
+
 - **Ring showcase:** Admin → Ring showcase manages the four-ring photo
   section further down (`#quartet`). Its animation is designed for exactly four rings, so it
   shows the first four visible rings in the list order; extra rings wait as
@@ -141,10 +152,10 @@ How it fits together:
 Check the [webgi manual](https://webgi.xyz/docs/manual/#sdk-links) for the latest version.
 To use the different version:
 
--   Update the version number in `package.json` file for both `webgi` and `@types/webgi`.
--   Run `npm install` to update the dependencies.
--   Delete the `.next` folder: `rm -rf .next`
--   Run `npm run dev` or `npm run build` to run or build the project.
+- Update the version number in `package.json` file for both `webgi` and `@types/webgi`.
+- Run `npm install` to update the dependencies.
+- Delete the `.next` folder: `rm -rf .next`
+- Run `npm run dev` or `npm run build` to run or build the project.
 
 ## Documentation
 

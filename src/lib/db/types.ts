@@ -124,6 +124,15 @@ export type HeroSlideDoc = {
 	filterTarget: string;
 	/** Glow colour behind the ring, `#rrggbb`. */
 	glow: string;
+	/**
+	 * `spin`: 360° frames played by scrolling; `photos`: views of the ring in
+	 * turn; `3d`: the recoloured 3D model. Default `3d`.
+	 */
+	mode?: 'spin' | 'photos' | '3d';
+	/** Views of the ring for a photo slide, in order. */
+	photos?: ImageAsset[];
+	/** Frames of one full turn for a spin slide, in order. */
+	spin?: ImageAsset[];
 	visible: boolean;
 	position: number;
 	createdAt: Date;

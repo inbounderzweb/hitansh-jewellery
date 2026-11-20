@@ -20,6 +20,17 @@ export type { HeroRingSlide };
 /** Most slides the hero shows; extra visible slides wait in reserve. */
 export const HERO_MAX_SLIDES = 6;
 
+/** Most photos (views of the ring) per photo slide. */
+export const HERO_MAX_PHOTOS = 6;
+
+/** Frames kept from a 360° video (one every 5°). */
+export const SPIN_FRAMES = 72;
+/** Most frames accepted for a spin. */
+export const SPIN_MAX_FRAMES = 180;
+
+export const HERO_MODES = ['spin', 'photos', '3d'] as const;
+export type HeroMode = (typeof HERO_MODES)[number];
+
 export const HERO_LIMITS = {
 	name: 40,
 	collection: 60,
@@ -53,6 +64,9 @@ export type HeroSlideData = {
 	filterTarget: FilterId;
 	/** `#rrggbb` */
 	glow: string;
+	mode: HeroMode;
+	photos: { url: string; alt?: string }[];
+	spin: { url: string }[];
 };
 
 const CAMERAS = HERO_RING_SLIDES.map((s) => s.camera);
@@ -74,39 +88,93 @@ export function heroGlows(hex: string) {
 }
 
 export function toHeroSlides(items: HeroSlideData[]): HeroRingSlide[] {
-	return items.slice(0, HERO_MAX_SLIDES).map((s, i) => ({
-		index: String(i + 1).padStart(2, '0'),
-		id: s.id,
-		collection: s.collection,
-		name: s.name,
-		spec: `${GEM_PRESETS[s.gem]?.label ?? s.gem} · ${METAL_PRESETS[s.metal]?.label ?? s.metal}`,
-		description: s.description,
-		gem: GEM_PRESETS[s.gem] ? s.gem : 'Diamond White',
-		metal: METAL_PRESETS[s.metal] ? s.metal : 'Platinum',
-		filterTarget: s.filterTarget,
-		...heroGlows(s.glow),
-		camera: CAMERAS[i % CAMERAS.length],
-	}));
+	// 3D slides take the hand-tuned camera moves in turn.
+	let cameraTurn = 0;
+	return items.slice(0, HERO_MAX_SLIDES).map((s, i) => {
+		const photos =
+			s.mode === 'photos' && s.photos.length
+				? s.photos.slice(0, HERO_MAX_PHOTOS).map((p, v) => ({
+						url: p.url,
+						alt: p.alt || `${s.name} — view ${v + 1}`,
+					}))
+				: undefined;
+		const spin =
+			s.mode === 'spin' && s.spin.length
+				? s.spin.slice(0, SPIN_MAX_FRAMES).map((f) => f.url)
+				: undefined;
+		const camera =
+			CAMERAS[(photos || spin ? 0 : cameraTurn++) % CAMERAS.length];
+		return {
+			index: String(i + 1).padStart(2, '0'),
+			id: s.id,
+			collection: s.collection,
+			name: s.name,
+			spec: `${GEM_PRESETS[s.gem]?.label ?? s.gem} · ${METAL_PRESETS[s.metal]?.label ?? s.metal}`,
+			description: s.description,
+			gem: GEM_PRESETS[s.gem] ? s.gem : 'Diamond White',
+			metal: METAL_PRESETS[s.metal] ? s.metal : 'Platinum',
+			filterTarget: s.filterTarget,
+			...heroGlows(s.glow),
+			camera,
+			...(photos && { photos }),
+			...(spin && { spin }),
+		};
+	});
 }
 
-/** The slides built into the code, used until the admin takes over. */
-export const staticHeroSlides = (): HeroRingSlide[] => HERO_RING_SLIDES;
+/** The client's first ring, shown as photos (views in `public/images/hero`). */
+const DOME_BAND: Omit<HeroSlideData, 'id'> = {
+	name: 'Dome Pavé',
+	collection: 'Diamond Bands',
+	description:
+		'Three rows of brilliant-cut diamonds crowning a sculpted dome of 18k yellow gold — made to be worn every day.',
+	gem: 'Diamond White',
+	metal: 'Gold',
+	filterTarget: 'diamond',
+	glow: '#d4b06a',
+	mode: 'spin',
+	spin: Array.from({ length: SPIN_FRAMES }, (_, i) => ({
+		url: `/images/hero/dome-band/spin/frame-${String(i).padStart(2, '0')}.webp`,
+	})),
+	photos: [1, 2, 3, 4].map((n) => ({
+		url: `/images/hero/dome-band/view-${n}.webp`,
+		alt: `Dome Pavé diamond band in yellow gold — view ${n}`,
+	})),
+};
 
 /** Starter data for "Import current slides" (glow = each slide's main glow). */
 export const STARTER_HERO_SLIDES: Omit<HeroSlideData, 'id'>[] = [
-	['#d4b06a', 0],
-	['#d83056', 1],
-	['#2a72e8', 2],
-	['#14bc6c', 3],
-].map(([glow, i]) => {
-	const s = HERO_RING_SLIDES[i as number];
-	return {
-		name: s.name,
-		collection: s.collection,
-		description: s.description,
-		gem: s.gem,
-		metal: s.metal,
-		filterTarget: s.filterTarget,
-		glow: glow as string,
-	};
-});
+	DOME_BAND,
+	...(
+		[
+			['#d4b06a', 0],
+			['#d83056', 1],
+			['#2a72e8', 2],
+			['#14bc6c', 3],
+		] as const
+	).map(([glow, i]) => {
+		const s = HERO_RING_SLIDES[i];
+		return {
+			name: s.name,
+			collection: s.collection,
+			description: s.description,
+			gem: s.gem,
+			metal: s.metal,
+			filterTarget: s.filterTarget,
+			glow,
+			mode: '3d' as const,
+			photos: [],
+			spin: [],
+		};
+	}),
+];
+
+/** The slides built into the code, used until the admin takes over. */
+export const staticHeroSlides = (): HeroRingSlide[] => {
+	const [dome] = toHeroSlides([{ ...DOME_BAND, id: 'dome-pave' }]);
+	// The original 3D slides keep their exact look; only the numbering moves.
+	return [dome, ...HERO_RING_SLIDES].map((s, i) => ({
+		...s,
+		index: String(i + 1).padStart(2, '0'),
+	}));
+};

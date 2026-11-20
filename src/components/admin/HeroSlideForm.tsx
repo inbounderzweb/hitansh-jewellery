@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { deleteHeroSlide, saveHeroSlide } from '@/app/admin/actions/hero';
+import { discardUploads } from '@/app/admin/actions/catalogue';
+import CatalogueImage from '@/components/catalogue/CatalogueImage';
 import type { HeroSlideFormValues } from '@/lib/admin/data';
 import {
 	parseHeroSlide,
@@ -13,13 +15,17 @@ import {
 	EXPLORE_FILTERS,
 	GEM_OPTIONS,
 	HERO_LIMITS,
+	HERO_MAX_PHOTOS,
 	HERO_MAX_SLIDES,
 	METAL_OPTIONS,
+	SPIN_FRAMES,
 	heroGlows,
 } from '@/lib/hero';
 import { Field, TextArea } from './Field';
 import { HeroSwatch } from './HeroTable';
 import Icon from './Icon';
+import ImageManager from './ImageManager';
+import SpinMaker from './SpinMaker';
 import Toggle from './Toggle';
 
 export const EMPTY_SLIDE: HeroSlideFormValues = {
@@ -30,6 +36,9 @@ export const EMPTY_SLIDE: HeroSlideFormValues = {
 	metal: 'Platinum',
 	filterTarget: 'all',
 	glow: '#d4b06a',
+	mode: 'spin',
+	photos: [],
+	spin: [],
 	visible: true,
 };
 
@@ -92,6 +101,7 @@ export default function HeroSlideForm({
 	const [saved, setSaved] = useState(false);
 	const [pending, start] = useTransition();
 	const dirty = useRef(false);
+	const [unsaved] = useState(() => new Set<string>());
 
 	useEffect(() => {
 		const warn = (e: BeforeUnloadEvent) => {
@@ -131,6 +141,7 @@ export default function HeroSlideForm({
 				return;
 			}
 			dirty.current = false;
+			unsaved.clear();
 			if (!id && res.id)
 				router.replace(`/admin/hero/${res.id}?created=1`);
 			else {
@@ -142,6 +153,7 @@ export default function HeroSlideForm({
 
 	const cancel = () => {
 		if (dirty.current && !confirm('Discard your unsaved changes?')) return;
+		if (unsaved.size) void discardUploads([...unsaved]);
 		dirty.current = false;
 		router.push('/admin/hero');
 	};
@@ -213,44 +225,116 @@ export default function HeroSlideForm({
 					/>
 				</section>
 
-				<section className="a-card" aria-labelledby="sec-look">
+				<section
+					className="a-card"
+					aria-labelledby="sec-look"
+					data-field="photos"
+				>
 					<h2 id="sec-look" className="a-card__title">
-						3D ring
+						Ring display
 					</h2>
-					<p className="a-hint a-hint--top">
-						The banner shows one 3D ring model. Each slide recolours
-						its centre stone and metal.
-					</p>
-					<div className="a-grid-2">
-						<Select
-							id="slide-gem"
-							label="Centre stone"
-							name="gem"
-							value={values.gem}
-							error={errors.gem}
-							onChange={(v) => set('gem', v)}
-						>
-							{GEM_OPTIONS.map((g) => (
-								<option key={g.value} value={g.value}>
-									{g.label}
-								</option>
-							))}
-						</Select>
-						<Select
-							id="slide-metal"
-							label="Metal"
-							name="metal"
-							value={values.metal}
-							error={errors.metal}
-							onChange={(v) => set('metal', v)}
-						>
-							{METAL_OPTIONS.map((m) => (
-								<option key={m.value} value={m.value}>
-									{m.label}
-								</option>
-							))}
-						</Select>
+					<div
+						className="a-segment"
+						role="radiogroup"
+						aria-label="How the ring is shown"
+					>
+						{(
+							[
+								['spin', '360° video'],
+								['photos', 'Photos of the ring'],
+								['3d', '3D ring model'],
+							] as const
+						).map(([mode, label]) => (
+							<label
+								key={mode}
+								className={values.mode === mode ? 'is-on' : ''}
+							>
+								<input
+									type="radio"
+									name="mode"
+									value={mode}
+									checked={values.mode === mode}
+									onChange={() => set('mode', mode)}
+								/>
+								{label}
+							</label>
+						))}
 					</div>
+					{values.mode === 'spin' ? (
+						<>
+							<p className="a-hint a-hint--top a-hint--after">
+								Choose the ring’s 360° turntable video (MP4).
+								Your browser turns it into {SPIN_FRAMES} frames
+								— one every 5° — removes a white studio
+								background and uploads the frames; the video
+								itself is not uploaded. On the website the ring
+								turns as visitors scroll.
+							</p>
+							<SpinMaker
+								frames={values.spin}
+								error={errors.spin}
+								onUploaded={(publicId) => unsaved.add(publicId)}
+								onChange={(spin) => set('spin', spin)}
+							/>
+						</>
+					) : values.mode === 'photos' ? (
+						<>
+							<p className="a-hint a-hint--top a-hint--after">
+								Upload up to {HERO_MAX_PHOTOS} views of the ring
+								(front, side, angle…). While visitors scroll,
+								the ring turns through them in this order. Use
+								transparent PNGs of the same size, ring centred,
+								at least 1800 px.
+							</p>
+							<ImageManager
+								kind="hero"
+								label="Ring views"
+								max={HERO_MAX_PHOTOS}
+								images={values.photos}
+								unsaved={unsaved}
+								error={errors.photos}
+								onUploaded={(publicId) => unsaved.add(publicId)}
+								onChange={(photos) => set('photos', photos)}
+							/>
+						</>
+					) : (
+						<>
+							<p className="a-hint a-hint--top a-hint--after">
+								Shows the built-in 3D ring model, recoloured
+								with the stone and metal below.
+							</p>
+							<div className="a-grid-2">
+								<Select
+									id="slide-gem"
+									label="Centre stone"
+									name="gem"
+									value={values.gem}
+									error={errors.gem}
+									onChange={(v) => set('gem', v)}
+								>
+									{GEM_OPTIONS.map((g) => (
+										<option key={g.value} value={g.value}>
+											{g.label}
+										</option>
+									))}
+								</Select>
+								<Select
+									id="slide-metal"
+									label="Metal"
+									name="metal"
+									value={values.metal}
+									error={errors.metal}
+									onChange={(v) => set('metal', v)}
+								>
+									{METAL_OPTIONS.map((m) => (
+										<option key={m.value} value={m.value}>
+											{m.label}
+										</option>
+									))}
+								</Select>
+							</div>
+						</>
+					)}
 					<div className="a-field" data-field="glow">
 						<label htmlFor="slide-glow">Glow colour</label>
 						<div className="a-colour">
@@ -264,7 +348,7 @@ export default function HeroSlideForm({
 						</div>
 						<p className="a-hint">
 							The soft light behind the ring. Match it to the
-							stone.
+							stone or metal.
 						</p>
 						{errors.glow && (
 							<p className="a-error" role="alert">
@@ -330,12 +414,29 @@ export default function HeroSlideForm({
 							} as React.CSSProperties
 						}
 					>
-						<HeroSwatch
-							gem={values.gem}
-							metal={values.metal}
-							glow={values.glow}
-							size={96}
-						/>
+						{(values.mode === 'spin' && values.spin[0]) ||
+						(values.mode === 'photos' && values.photos[0]) ? (
+							<span className="a-heropreview__photo">
+								<CatalogueImage
+									src={
+										(values.mode === 'spin'
+											? values.spin[0]
+											: values.photos[0]
+										).url
+									}
+									alt=""
+									fill
+									sizes="280px"
+								/>
+							</span>
+						) : (
+							<HeroSwatch
+								gem={values.gem}
+								metal={values.metal}
+								glow={values.glow}
+								size={96}
+							/>
+						)}
 						<p className="a-heropreview__eyebrow">
 							{values.collection || 'Collection line'}
 						</p>

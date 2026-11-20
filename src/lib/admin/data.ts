@@ -8,6 +8,7 @@ import {
 	type EnquiryStatus,
 } from '@/lib/db/types';
 import type { ImageAsset, ProductCategory, Spec } from '@/lib/catalogue';
+import type { HeroMode } from '@/lib/hero';
 
 /**
  * Read models for the admin pages. Every function checks the session itself:
@@ -429,6 +430,9 @@ export type HeroSlideFormValues = {
 	metal: string;
 	filterTarget: string;
 	glow: string;
+	mode: HeroMode;
+	photos: ImageAsset[];
+	spin: ImageAsset[];
 	visible: boolean;
 };
 
@@ -450,6 +454,9 @@ export async function listHeroSlides(): Promise<HeroSlideRow[]> {
 		metal: s.metal,
 		filterTarget: s.filterTarget,
 		glow: s.glow,
+		mode: s.mode ?? '3d',
+		photos: (s.photos ?? []).map((p) => ({ ...p })),
+		spin: (s.spin ?? []).map((f) => ({ ...f })),
 		visible: s.visible,
 	}));
 }
@@ -471,6 +478,9 @@ export async function getHeroSlideForm(
 		metal: s.metal,
 		filterTarget: s.filterTarget,
 		glow: s.glow,
+		mode: s.mode ?? '3d',
+		photos: (s.photos ?? []).map((p) => ({ ...p })),
+		spin: (s.spin ?? []).map((f) => ({ ...f })),
 		visible: s.visible,
 	};
 }

@@ -154,11 +154,10 @@ async function loadBannerFromDb(): Promise<BannerRing[] | null> {
 	});
 }
 
-const cachedBanner = unstable_cache(
-	async () => (await loadBannerFromDb()) ?? staticBannerRings(),
-	['public-banner-rings'],
-	{ tags: [CATALOGUE_TAG] },
-);
+// Only the database result is cached; the built-in fallback comes from code.
+const cachedBanner = unstable_cache(loadBannerFromDb, ['home-banner-rings'], {
+	tags: [CATALOGUE_TAG],
+});
 
 /**
  * The (up to four) rings for the home page banner. Shares the catalogue
@@ -167,7 +166,7 @@ const cachedBanner = unstable_cache(
 export const getBannerRings = cache(async (): Promise<BannerRing[]> => {
 	if (!isDbConfigured()) return staticBannerRings();
 	try {
-		return await cachedBanner();
+		return (await cachedBanner()) ?? staticBannerRings();
 	} catch (error) {
 		console.error(
 			'Banner: database unavailable, using built-in rings',
@@ -213,21 +212,22 @@ async function loadHeroFromDb(): Promise<HeroRingSlide[] | null> {
 			metal: s.metal,
 			filterTarget: target(s.filterTarget),
 			glow: s.glow,
+			mode: s.mode ?? '3d',
+			photos: s.photos ?? [],
+			spin: s.spin ?? [],
 		})),
 	);
 }
 
-const cachedHero = unstable_cache(
-	async () => (await loadHeroFromDb()) ?? staticHeroSlides(),
-	['public-hero-slides'],
-	{ tags: [CATALOGUE_TAG] },
-);
+const cachedHero = unstable_cache(loadHeroFromDb, ['home-hero-slides'], {
+	tags: [CATALOGUE_TAG],
+});
 
 /** Slides for the 3D hero banner (built-in ones until managed in the admin). */
 export const getHeroSlides = cache(async (): Promise<HeroRingSlide[]> => {
 	if (!isDbConfigured()) return staticHeroSlides();
 	try {
-		return await cachedHero();
+		return (await cachedHero()) ?? staticHeroSlides();
 	} catch (error) {
 		console.error(
 			'Hero: database unavailable, using built-in slides',
