@@ -1,4 +1,3 @@
-## A 3D scrollable website made with WEBGi, GSAP and Next.js
 
 *Design by Anderson Mancini*
 
