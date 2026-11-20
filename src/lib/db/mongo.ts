@@ -6,6 +6,7 @@ import type {
 	CollectionDoc,
 	EnquiryDoc,
 	HeroSlideDoc,
+	MakingDoc,
 	MetaDoc,
 	ProductDoc,
 	RateLimitDoc,
@@ -61,6 +62,7 @@ export async function collections() {
 		meta: db.collection<MetaDoc>('meta'),
 		bannerRings: db.collection<BannerRingDoc>('bannerRings'),
 		heroSlides: db.collection<HeroSlideDoc>('heroSlides'),
+		homeSections: db.collection<MakingDoc>('homeSections'),
 	};
 }
 

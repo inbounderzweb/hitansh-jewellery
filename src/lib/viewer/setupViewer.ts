@@ -406,6 +406,12 @@ export async function setupViewer(
 
 	// Compute exact camera coordinates for slide 0 at t = 0
 	const slide0 = heroSlides[0];
+	// Photo slides show pictures of the ring instead of the 3D model, so the
+	// canvas stays hidden (and idle) while one is on screen.
+	const isPhotoSlide = (i: number) =>
+		!!(heroSlides[i]?.photos?.length || heroSlides[i]?.spin?.length);
+	let photoSlideShown = isPhotoSlide(0);
+	if (photoSlideShown && canvasContainer) canvasContainer.style.opacity = '0';
 	const slide0Radius = isMobileViewport()
 		? slide0.camera.mobileRadius
 		: slide0.camera.radius;
@@ -700,6 +706,16 @@ export async function setupViewer(
 			const unpinT = clamp((scrollY - heroPinSpan) / (vh * 0.65), 0, 1);
 			slideOpacity *= 1 - smoothstep(unpinT);
 		}
+
+		const photoNow = isPhotoSlide(slideIdx);
+		if (photoNow) slideOpacity = 0;
+		if (photoNow) {
+			if (viewer.renderEnabled) viewer.renderEnabled = false;
+		} else if (photoSlideShown) {
+			viewer.renderEnabled = true;
+			viewer.setDirty();
+		}
+		photoSlideShown = photoNow;
 
 		const opacityStr = slideOpacity.toFixed(3);
 		if (canvasContainer && opacityStr !== lastCanvasOpacity) {

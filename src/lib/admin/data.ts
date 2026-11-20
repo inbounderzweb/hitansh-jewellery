@@ -8,6 +8,13 @@ import {
 	type EnquiryStatus,
 } from '@/lib/db/types';
 import type { ImageAsset, ProductCategory, Spec } from '@/lib/catalogue';
+import { staticHeroSlides, type HeroMode } from '@/lib/hero';
+import {
+	DEFAULT_MAKING_HEADING,
+	DEFAULT_MAKING_STAGES,
+	makingEyebrow,
+	type MakingSource,
+} from '@/lib/making';
 
 /**
  * Read models for the admin pages. Every function checks the session itself:
@@ -429,6 +436,9 @@ export type HeroSlideFormValues = {
 	metal: string;
 	filterTarget: string;
 	glow: string;
+	mode: HeroMode;
+	photos: ImageAsset[];
+	spin: ImageAsset[];
 	visible: boolean;
 };
 
@@ -450,6 +460,9 @@ export async function listHeroSlides(): Promise<HeroSlideRow[]> {
 		metal: s.metal,
 		filterTarget: s.filterTarget,
 		glow: s.glow,
+		mode: s.mode ?? '3d',
+		photos: (s.photos ?? []).map((p) => ({ ...p })),
+		spin: (s.spin ?? []).map((f) => ({ ...f })),
 		visible: s.visible,
 	}));
 }
@@ -471,6 +484,9 @@ export async function getHeroSlideForm(
 		metal: s.metal,
 		filterTarget: s.filterTarget,
 		glow: s.glow,
+		mode: s.mode ?? '3d',
+		photos: (s.photos ?? []).map((p) => ({ ...p })),
+		spin: (s.spin ?? []).map((f) => ({ ...f })),
 		visible: s.visible,
 	};
 }
@@ -488,4 +504,72 @@ export async function exploreCollectionOptions() {
 		title: c.title,
 		visible: c.visible,
 	}));
+}
+
+/* --------------------------------------------------------- Making section */
+
+export type MakingFormValues = {
+	visible: boolean;
+	eyebrow: string;
+	heading: string;
+	stages: string[];
+	source: MakingSource;
+	spin: ImageAsset[];
+};
+
+/**
+ * The Making section's settings (the built-in defaults until first saved),
+ * plus the 3D banner ring it falls back to.
+ */
+export async function getMakingForm(): Promise<{
+	values: MakingFormValues;
+	saved: boolean;
+	banner: { name: string; frames: ImageAsset[] } | null;
+}> {
+	await requireAdmin();
+	const { homeSections, heroSlides } = await db();
+	const [doc, slide] = await Promise.all([
+		homeSections.findOne({ _id: 'making' }),
+		heroSlides
+			.find({ visible: true, 'spin.0': { $exists: true } })
+			.sort({ position: 1, createdAt: 1 })
+			.limit(1)
+			.next(),
+	]);
+	const builtIn = staticHeroSlides().find((s) => s.spin?.length);
+	const banner = slide
+		? {
+				name: slide.name,
+				frames: (slide.spin ?? []).map(({ url, publicId }) => ({
+					url,
+					...(publicId && { publicId }),
+				})),
+			}
+		: builtIn
+			? {
+					name: builtIn.name,
+					frames: (builtIn.spin ?? []).map((url) => ({ url })),
+				}
+			: null;
+	const values: MakingFormValues = doc
+		? {
+				visible: doc.visible,
+				eyebrow: doc.eyebrow,
+				heading: doc.heading,
+				stages: DEFAULT_MAKING_STAGES.map((d, i) => doc.stages[i] ?? d),
+				source: doc.source,
+				spin: (doc.spin ?? []).map(({ url, publicId }) => ({
+					url,
+					...(publicId && { publicId }),
+				})),
+			}
+		: {
+				visible: true,
+				eyebrow: makingEyebrow(banner?.name ?? ''),
+				heading: DEFAULT_MAKING_HEADING,
+				stages: [...DEFAULT_MAKING_STAGES],
+				source: 'banner',
+				spin: [],
+			};
+	return { values, saved: !!doc, banner };
 }

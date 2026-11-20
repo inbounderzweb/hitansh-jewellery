@@ -13,6 +13,7 @@ import type { HeroSlideRow } from '@/lib/admin/data';
 import { HERO_MAX_SLIDES } from '@/lib/hero';
 import { GEM_PRESETS, METAL_PRESETS } from '@/lib/ringController';
 import Icon from './Icon';
+import Thumb from './Thumb';
 import Toggle from './Toggle';
 
 export function HeroSwatch({
@@ -84,7 +85,7 @@ export default function HeroTable({ rows }: { rows: HeroSlideRow[] }) {
 							</th>
 							<th scope="col">Slide</th>
 							<th scope="col" className="a-hide-sm">
-								Stone &amp; metal
+								Display
 							</th>
 							<th scope="col">On website</th>
 							<th scope="col">Visible</th>
@@ -137,11 +138,24 @@ export default function HeroTable({ rows }: { rows: HeroSlideRow[] }) {
 										href={`/admin/hero/${r.id}`}
 										className="a-prod"
 									>
-										<HeroSwatch
-											gem={r.gem}
-											metal={r.metal}
-											glow={r.glow}
-										/>
+										{r.mode === 'spin' && r.spin[0] ? (
+											<Thumb
+												src={r.spin[0].url}
+												size={48}
+											/>
+										) : r.mode === 'photos' &&
+										  r.photos[0] ? (
+											<Thumb
+												src={r.photos[0].url}
+												size={48}
+											/>
+										) : (
+											<HeroSwatch
+												gem={r.gem}
+												metal={r.metal}
+												glow={r.glow}
+											/>
+										)}
 										<span>
 											<strong>{r.name}</strong>
 											<span className="a-muted">
@@ -151,7 +165,11 @@ export default function HeroTable({ rows }: { rows: HeroSlideRow[] }) {
 									</Link>
 								</td>
 								<td className="a-hide-sm a-muted">
-									{material(r.gem, r.metal)}
+									{r.mode === 'spin'
+										? `360° spin · ${r.spin.length} frames`
+										: r.mode === 'photos'
+											? `Photos · ${r.photos.length} view${r.photos.length === 1 ? '' : 's'}`
+											: `3D · ${material(r.gem, r.metal)}`}
 								</td>
 								<td>
 									{live.includes(r.id) ? (

@@ -93,6 +93,20 @@ export type MetaDoc = {
 	initialisedAt: Date;
 };
 
+/** The home page's "Making" section (a single document). */
+export type MakingDoc = {
+	_id: 'making';
+	visible: boolean;
+	eyebrow: string;
+	heading: string;
+	/** Titles of the four craft stages, in order. */
+	stages: string[];
+	/** `banner`: the 3D banner's first 360° ring; `own`: `spin` below. */
+	source: 'banner' | 'own';
+	spin: ImageAsset[];
+	updatedAt: Date;
+};
+
 /** One ring image in the home page's scrolling four-ring banner. */
 export type BannerRingDoc = {
 	_id: ObjectId;
@@ -124,6 +138,15 @@ export type HeroSlideDoc = {
 	filterTarget: string;
 	/** Glow colour behind the ring, `#rrggbb`. */
 	glow: string;
+	/**
+	 * `spin`: 360° frames played by scrolling; `photos`: views of the ring in
+	 * turn; `3d`: the recoloured 3D model. Default `3d`.
+	 */
+	mode?: 'spin' | 'photos' | '3d';
+	/** Views of the ring for a photo slide, in order. */
+	photos?: ImageAsset[];
+	/** Frames of one full turn for a spin slide, in order. */
+	spin?: ImageAsset[];
 	visible: boolean;
 	position: number;
 	createdAt: Date;

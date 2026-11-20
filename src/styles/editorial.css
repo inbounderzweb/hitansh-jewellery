@@ -315,6 +315,200 @@
 	}
 }
 
+/* ------------------------------------- Making: one ring into four stages */
+
+.editorial > section.atelier {
+	padding: 0;
+}
+
+.atelier {
+	position: relative;
+	height: 420vh;
+	background:
+		radial-gradient(
+			60% 46% at 50% 62%,
+			rgba(212, 176, 106, 0.12) 0%,
+			transparent 70%
+		),
+		radial-gradient(
+			100% 80% at 50% 40%,
+			#13223d 0%,
+			var(--navy) 55%,
+			var(--navy-950) 100%
+		);
+}
+
+.atelier__sticky {
+	position: sticky;
+	top: 0;
+	height: 100vh;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: clamp(5.5rem, 13vh, 8.5rem) var(--gutter) clamp(1.5rem, 5vh, 3rem);
+}
+
+.atelier__heading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1.1rem;
+	text-align: center;
+	max-width: 46rem;
+	opacity: 0;
+	will-change: transform, opacity;
+}
+
+.atelier__title {
+	font-size: clamp(2rem, 1.2rem + 2.6vw, 3.6rem);
+	text-wrap: balance;
+}
+
+.atelier__stage {
+	position: relative;
+	flex: 1;
+	width: 100%;
+	max-width: 1240px;
+	display: grid;
+	align-items: center;
+}
+
+.atelier__hero {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: min(64vw, 62vh, 720px);
+	aspect-ratio: 1;
+	transform: translate(-50%, -50%) translateY(4vh);
+	will-change: transform, opacity;
+	pointer-events: none;
+}
+
+.atelier__canvas {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+/* Soft pool of light on the "floor" beneath each ring. */
+.atelier__floor {
+	position: absolute;
+	left: 12%;
+	right: 12%;
+	bottom: 12%;
+	height: 12%;
+	border-radius: 50%;
+	background: radial-gradient(
+		closest-side,
+		rgba(236, 220, 178, 0.16) 0%,
+		rgba(212, 176, 106, 0.06) 55%,
+		transparent 100%
+	);
+	filter: blur(6px);
+}
+
+.atelier__rings {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: clamp(0.5rem, 2vw, 2rem);
+}
+
+.atelier-ring {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	opacity: 0;
+	will-change: transform, opacity;
+}
+
+.atelier-ring__visual {
+	position: relative;
+	width: min(100%, 290px, 36vh);
+	aspect-ratio: 1;
+}
+
+.atelier-ring__label {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.55rem;
+	margin-top: clamp(0.25rem, 1.5vh, 1rem);
+	opacity: 0;
+	will-change: transform, opacity;
+}
+
+.atelier-ring__tick {
+	width: 1px;
+	height: clamp(1.25rem, 4vh, 2.5rem);
+	background: linear-gradient(to bottom, transparent, var(--gold));
+	opacity: 0.6;
+}
+
+.atelier-ring__number {
+	font-family: var(--font-ui);
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0.28em;
+	color: var(--gold);
+}
+
+.atelier-ring__title {
+	font-family: var(--font-serif);
+	font-weight: 300;
+	font-size: clamp(1.5rem, 1rem + 1.4vw, 2.4rem);
+	line-height: 1;
+	color: var(--ivory);
+}
+
+@media (max-width: 768px) {
+	.atelier {
+		height: 360vh;
+	}
+	.atelier__sticky {
+		padding-top: 5.5rem;
+	}
+	.atelier__title {
+		font-size: clamp(1.6rem, 1.1rem + 2.6vw, 2.2rem);
+	}
+	.atelier__hero {
+		width: min(92vw, 52vh);
+	}
+	.atelier__rings {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		row-gap: 1.25rem;
+	}
+	.atelier-ring__visual {
+		width: min(100%, 22vh);
+	}
+	.atelier-ring__tick {
+		height: 0.9rem;
+	}
+	.atelier-ring__label {
+		gap: 0.35rem;
+		margin-top: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.atelier {
+		height: auto;
+	}
+	.atelier__sticky {
+		position: relative;
+		height: auto;
+		min-height: 100vh;
+	}
+	.atelier__hero {
+		display: none;
+	}
+}
+
 /* ---------------------------------------------------------- Collections */
 
 .collections {
@@ -472,33 +666,34 @@
 	flex-direction: column;
 	gap: 1.25rem;
 }
-.chapter--1 {
-	width: 82%;
-	margin-left: auto;
-}
-.chapter--2 {
-	width: 100%;
-}
+/* Every frame is the same size and 4:5 ratio, in one steady column. The
+   whole uploaded image is shown (never cropped), centred in its frame. */
+.chapter--1,
+.chapter--2,
 .chapter--3 {
-	width: 84%;
+	width: min(68%, 500px);
+	margin-inline: auto;
 }
 .chapter__media {
+	position: relative;
+	overflow: hidden;
 	aspect-ratio: 4 / 5;
-}
-.chapter--2 .chapter__media,
-.chapter--3 .chapter__media {
-	aspect-ratio: 7 / 5;
+	background: radial-gradient(
+		80% 70% at 50% 45%,
+		#13223d 0%,
+		var(--navy-950) 100%
+	);
 }
 .chapter__drift {
 	position: absolute;
-	inset: -8% 0;
+	inset: 0;
 }
 .chapter__media img {
-	object-fit: cover;
+	object-fit: contain;
 	transition: transform 1.6s var(--ease-out);
 }
 .chapter:hover .chapter__media img {
-	transform: scale(1.05);
+	transform: scale(1.03);
 }
 .chapter__media::after {
 	content: '';

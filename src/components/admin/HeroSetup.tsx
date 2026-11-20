@@ -22,10 +22,11 @@ export default function HeroSetup() {
 		<section className="a-banner" aria-labelledby="hero-setup-title">
 			<h2 id="hero-setup-title">Set up the 3D banner slides</h2>
 			<p>
-				The 3D banner at the top of the home page currently shows the
-				four slides built into the code (Aurora, Rose Ember, Midnight
-				Sea and Verdant). Import them to manage the banner here; from
-				then on it shows the slides you publish in this panel.
+				The banner at the top of the home page currently shows the
+				slides built into the code: the Dome Pavé ring photos, then the
+				3D Aurora, Rose Ember, Midnight Sea and Verdant. Import them to
+				manage the banner here; from then on it shows the slides you
+				publish in this panel.
 			</p>
 			{error && (
 				<p className="a-alert" role="alert">

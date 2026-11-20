@@ -7,9 +7,13 @@ import { productTags, type ProductCategory, type Spec } from '@/lib/catalogue';
 import {
 	GEM_OPTIONS,
 	HERO_LIMITS,
+	HERO_MAX_PHOTOS,
 	METAL_OPTIONS,
+	SPIN_MAX_FRAMES,
 	isProductFilter,
+	type HeroMode,
 } from '@/lib/hero';
+import { MAKING_LIMITS, MAKING_STAGES, type MakingSource } from '@/lib/making';
 
 export type FieldErrors = Record<string, string>;
 
@@ -241,6 +245,61 @@ export function validateBannerRing(r: BannerRingInput): FieldErrors {
 	return e;
 }
 
+/* --------------------------------------------------------- Making section */
+
+export type MakingInput = {
+	visible: boolean;
+	eyebrow: string;
+	heading: string;
+	stages: string[];
+	source: MakingSource;
+	spin: ImageInput[];
+};
+
+export function parseMaking(raw: unknown): MakingInput {
+	const r = (raw && typeof raw === 'object' ? raw : {}) as Record<
+		string,
+		unknown
+	>;
+	const stages = Array.isArray(r.stages) ? r.stages : [];
+	return {
+		visible: r.visible === true,
+		eyebrow: text(r.eyebrow, MAKING_LIMITS.eyebrow + 1),
+		heading: text(r.heading, MAKING_LIMITS.heading + 1),
+		stages: Array.from({ length: MAKING_STAGES }, (_, i) =>
+			text(stages[i], MAKING_LIMITS.stage + 1),
+		),
+		source: r.source === 'own' ? 'own' : 'banner',
+		spin: Array.isArray(r.spin)
+			? (r.spin as ImageInput[]).slice(0, SPIN_MAX_FRAMES + 1)
+			: [],
+	};
+}
+
+export function validateMaking(m: MakingInput): FieldErrors {
+	const e: FieldErrors = {};
+	if (!m.eyebrow) e.eyebrow = 'Enter the small line above the heading.';
+	else if (m.eyebrow.length > MAKING_LIMITS.eyebrow)
+		e.eyebrow = `Keep this under ${MAKING_LIMITS.eyebrow} characters.`;
+	if (!m.heading) e.heading = 'Enter the heading.';
+	else if (m.heading.length > MAKING_LIMITS.heading)
+		e.heading = `Keep the heading under ${MAKING_LIMITS.heading} characters.`;
+	m.stages.forEach((s, i) => {
+		if (!s) e[`stage${i}`] = 'Enter a name for this stage.';
+		else if (s.length > MAKING_LIMITS.stage)
+			e[`stage${i}`] =
+				`Keep this under ${MAKING_LIMITS.stage} characters.`;
+	});
+	if (m.source === 'own') {
+		if (m.spin.length < 12)
+			e.spin =
+				'Add the 360° video of the ring (it becomes the spin frames).';
+		else if (m.spin.length > SPIN_MAX_FRAMES)
+			e.spin = `A spin can have up to ${SPIN_MAX_FRAMES} frames.`;
+	}
+	return e;
+}
+
 /* ------------------------------------------------------------- Hero slides */
 
 export type HeroSlideInput = {
@@ -251,6 +310,9 @@ export type HeroSlideInput = {
 	metal: string;
 	filterTarget: string;
 	glow: string;
+	mode: HeroMode;
+	photos: ImageInput[];
+	spin: ImageInput[];
 	visible: boolean;
 };
 
@@ -267,6 +329,13 @@ export function parseHeroSlide(raw: unknown): HeroSlideInput {
 		metal: text(r.metal, 40),
 		filterTarget: text(r.filterTarget, 100),
 		glow: text(r.glow, 7).toLowerCase(),
+		mode: r.mode === 'photos' || r.mode === 'spin' ? r.mode : '3d',
+		photos: Array.isArray(r.photos)
+			? (r.photos as ImageInput[]).slice(0, HERO_MAX_PHOTOS + 1)
+			: [],
+		spin: Array.isArray(r.spin)
+			? (r.spin as ImageInput[]).slice(0, SPIN_MAX_FRAMES + 1)
+			: [],
 		visible: r.visible === true,
 	};
 }
@@ -291,5 +360,18 @@ export function validateHeroSlide(s: HeroSlideInput): FieldErrors {
 	)
 		e.filterTarget = 'Choose what the Explore button shows.';
 	if (!/^#[0-9a-f]{6}$/.test(s.glow)) e.glow = 'Choose a glow colour.';
+	if (s.mode === 'photos') {
+		if (!s.photos.length)
+			e.photos = 'Upload at least one photo of the ring.';
+		else if (s.photos.length > HERO_MAX_PHOTOS)
+			e.photos = `Use up to ${HERO_MAX_PHOTOS} photos.`;
+	}
+	if (s.mode === 'spin') {
+		if (s.spin.length < 12)
+			e.spin =
+				'Add the 360° video of the ring (it becomes the spin frames).';
+		else if (s.spin.length > SPIN_MAX_FRAMES)
+			e.spin = `A spin can have up to ${SPIN_MAX_FRAMES} frames.`;
+	}
 	return e;
 }

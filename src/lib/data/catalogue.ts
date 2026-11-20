@@ -11,6 +11,13 @@ import {
 	type HeroRingSlide,
 } from '@/lib/hero';
 import {
+	DEFAULT_MAKING_HEADING,
+	DEFAULT_MAKING_STAGES,
+	makingEyebrow,
+	type MakingContent,
+	type MakingSource,
+} from '@/lib/making';
+import {
 	displayIndex,
 	productPath,
 	staticCatalogue,
@@ -154,11 +161,10 @@ async function loadBannerFromDb(): Promise<BannerRing[] | null> {
 	});
 }
 
-const cachedBanner = unstable_cache(
-	async () => (await loadBannerFromDb()) ?? staticBannerRings(),
-	['public-banner-rings'],
-	{ tags: [CATALOGUE_TAG] },
-);
+// Only the database result is cached; the built-in fallback comes from code.
+const cachedBanner = unstable_cache(loadBannerFromDb, ['home-banner-rings'], {
+	tags: [CATALOGUE_TAG],
+});
 
 /**
  * The (up to four) rings for the home page banner. Shares the catalogue
@@ -167,7 +173,7 @@ const cachedBanner = unstable_cache(
 export const getBannerRings = cache(async (): Promise<BannerRing[]> => {
 	if (!isDbConfigured()) return staticBannerRings();
 	try {
-		return await cachedBanner();
+		return (await cachedBanner()) ?? staticBannerRings();
 	} catch (error) {
 		console.error(
 			'Banner: database unavailable, using built-in rings',
@@ -213,21 +219,22 @@ async function loadHeroFromDb(): Promise<HeroRingSlide[] | null> {
 			metal: s.metal,
 			filterTarget: target(s.filterTarget),
 			glow: s.glow,
+			mode: s.mode ?? '3d',
+			photos: s.photos ?? [],
+			spin: s.spin ?? [],
 		})),
 	);
 }
 
-const cachedHero = unstable_cache(
-	async () => (await loadHeroFromDb()) ?? staticHeroSlides(),
-	['public-hero-slides'],
-	{ tags: [CATALOGUE_TAG] },
-);
+const cachedHero = unstable_cache(loadHeroFromDb, ['home-hero-slides'], {
+	tags: [CATALOGUE_TAG],
+});
 
 /** Slides for the 3D hero banner (built-in ones until managed in the admin). */
 export const getHeroSlides = cache(async (): Promise<HeroRingSlide[]> => {
 	if (!isDbConfigured()) return staticHeroSlides();
 	try {
-		return await cachedHero();
+		return (await cachedHero()) ?? staticHeroSlides();
 	} catch (error) {
 		console.error(
 			'Hero: database unavailable, using built-in slides',
@@ -236,3 +243,68 @@ export const getHeroSlides = cache(async (): Promise<HeroRingSlide[]> => {
 		return staticHeroSlides();
 	}
 });
+
+/* --------------------------------------------------------- Making section */
+
+type MakingSettings = {
+	visible: boolean;
+	eyebrow: string;
+	heading: string;
+	stages: string[];
+	source: MakingSource;
+	spin: string[];
+};
+
+async function loadMakingFromDb(): Promise<MakingSettings | null> {
+	const { homeSections } = await db();
+	const doc = await homeSections.findOne({ _id: 'making' });
+	if (!doc) return null;
+	return {
+		visible: doc.visible,
+		eyebrow: doc.eyebrow,
+		heading: doc.heading,
+		stages: doc.stages,
+		source: doc.source,
+		spin: (doc.spin ?? []).map((f) => f.url),
+	};
+}
+
+const cachedMaking = unstable_cache(loadMakingFromDb, ['home-making'], {
+	tags: [CATALOGUE_TAG],
+});
+
+/**
+ * Content of the "Making" section, or `null` when it is hidden or has no
+ * ring to show. Until it is saved in the admin it shows the 3D banner's first
+ * 360° ring with the built-in text.
+ */
+export const getMakingSection = cache(
+	async (heroSlides: HeroRingSlide[]): Promise<MakingContent | null> => {
+		let saved: MakingSettings | null = null;
+		if (isDbConfigured()) {
+			try {
+				saved = await cachedMaking();
+			} catch (error) {
+				console.error(
+					'Making: database unavailable, using built-in section',
+					error,
+				);
+			}
+		}
+		if (saved && !saved.visible) return null;
+		const bannerRing =
+			heroSlides.find((s) => s.spin?.length) ??
+			staticHeroSlides().find((s) => s.spin?.length);
+		const frames =
+			saved?.source === 'own' ? saved.spin : (bannerRing?.spin ?? []);
+		if (!frames.length) return null;
+		return {
+			eyebrow: saved?.eyebrow || makingEyebrow(bannerRing?.name ?? ''),
+			heading: saved?.heading || DEFAULT_MAKING_HEADING,
+			stages: DEFAULT_MAKING_STAGES.map(
+				(fallback, i) => saved?.stages[i] || fallback,
+			),
+			frames,
+		};
+	},
+);

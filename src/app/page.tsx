@@ -7,6 +7,7 @@ import ScrollToTopOnLoad from '@/components/ScrollToTopOnLoad';
 import ScrollEffects from '@/components/ScrollEffects';
 import BrandStory from '@/components/editorial/BrandStory';
 import RingQuartet from '@/components/editorial/RingQuartet';
+import RingAtelier from '@/components/editorial/RingAtelier';
 import Collections from '@/components/editorial/Collections';
 import ProductShowcase from '@/components/editorial/ProductShowcase';
 import Signature from '@/components/editorial/Signature';
@@ -20,6 +21,7 @@ import {
 	getBannerRings,
 	getCatalogue,
 	getHeroSlides,
+	getMakingSection,
 } from '@/lib/data/catalogue';
 
 // Catalogue edits refresh this page on demand; this is only a safety net.
@@ -42,6 +44,7 @@ export default async function Home() {
 		getBannerRings(),
 		getHeroSlides(),
 	]);
+	const making = await getMakingSection(heroSlides);
 	return (
 		<>
 			<Loader />
@@ -52,6 +55,7 @@ export default async function Home() {
 			<WebgiViewer slides={heroSlides} />
 			<main id="main-content" className="editorial">
 				<BrandStory />
+				{making && <RingAtelier {...making} />}
 				<RingQuartet rings={bannerRings} />
 				<Collections collections={catalogue.collections} />
 				<ProductShowcase {...catalogue} />

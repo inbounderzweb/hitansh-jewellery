@@ -260,6 +260,16 @@ export type HeroRingSlide = {
 	metal: keyof typeof METAL_PRESETS;
 	/** Product filter the "Explore Collection" button applies. */
 	filterTarget: FilterId;
+	/**
+	 * Photo slide: views of the ring shown in turn while scrolling (the 3D
+	 * ring is hidden). Absent for a 3D slide.
+	 */
+	photos?: { url: string; alt: string }[];
+	/**
+	 * 360° spin slide: frames of one full turn (transparent images), played
+	 * by scrolling. The 3D ring is hidden.
+	 */
+	spin?: string[];
 	/** Ambient radial glow behind the ring (harmonised with Midnight Navy #0E192D) */
 	glowPrimary: string;
 	glowSecondary: string;
