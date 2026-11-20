@@ -2,6 +2,9 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import ProductListing from '@/components/catalogue/ProductListing';
 import { brand } from '@/content/site';
+import { getCatalogue } from '@/lib/data/catalogue';
+
+export const revalidate = 300;
 
 export const metadata: Metadata = {
 	title: 'The Catalogue',
@@ -9,7 +12,8 @@ export const metadata: Metadata = {
 	alternates: { canonical: '/products' },
 };
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+	const { products, collections } = await getCatalogue();
 	return (
 		<div className="container cat-page">
 			<nav className="crumbs" aria-label="Breadcrumb">
@@ -28,7 +32,11 @@ export default function ProductsPage() {
 					metals. Every piece is available to view by appointment.
 				</p>
 			</header>
-			<ProductListing headingLevel="h2" />
+			<ProductListing
+				products={products}
+				collections={collections}
+				headingLevel="h2"
+			/>
 		</div>
 	);
 }

@@ -934,7 +934,8 @@ html.has-dialog body {
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
-		padding: 0.75rem var(--gutter) calc(0.75rem + env(safe-area-inset-bottom));
+		padding: 0.75rem var(--gutter)
+			calc(0.75rem + env(safe-area-inset-bottom));
 		background: rgba(14, 25, 45, 0.96);
 		-webkit-backdrop-filter: blur(12px);
 		backdrop-filter: blur(12px);

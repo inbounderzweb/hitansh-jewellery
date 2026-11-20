@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
+import Image from './CatalogueImage';
 import { useEffect, useRef, useState } from 'react';
-import type { GalleryImage } from '@/lib/catalogue';
+type GalleryImage = { url: string; alt: string };
 
 type Props = { images: GalleryImage[]; name: string };
 
@@ -59,14 +59,14 @@ export default function ProductGallery({ images, name }: Props) {
 			>
 				{images.map((img, i) => (
 					<button
-						key={img.src}
+						key={img.url}
 						type="button"
 						className="pdp-gallery__thumb"
 						aria-current={i === active}
 						aria-label={`Show image ${i + 1} of ${count}`}
 						onClick={() => setActive(i)}
 					>
-						<Image src={img.src} alt="" fill sizes="96px" />
+						<Image src={img.url} alt="" fill sizes="96px" />
 					</button>
 				))}
 			</div>
@@ -81,9 +81,9 @@ export default function ProductGallery({ images, name }: Props) {
 			>
 				{images.map((img, i) => (
 					<Image
-						key={img.src}
+						key={img.url}
 						className="pdp-gallery__img"
-						src={img.src}
+						src={img.url}
 						alt={i === active ? img.alt : ''}
 						fill
 						priority={i === 0}
@@ -119,8 +119,8 @@ export default function ProductGallery({ images, name }: Props) {
 			>
 				<div className="lightbox__frame">
 					<Image
-						key={images[active].src}
-						src={images[active].src}
+						key={images[active].url}
+						src={images[active].url}
 						alt={images[active].alt}
 						fill
 						sizes="100vw"

@@ -1,10 +1,14 @@
-import type { ProductCategory } from '@/content/site';
+import type { ProductCategory } from '@/lib/catalogue';
 
-export type FilterId = 'all' | ProductCategory;
+/** A filter tag, a collection (`collection:<slug>`), or everything. */
+export type FilterId = 'all' | ProductCategory | `collection:${string}`;
 
 const EVENT = 'hitansh:product-filter';
 
-/** Ask the product showcase to switch filter (e.g. from a collection card). */
+export const collectionFilter = (slug: string): FilterId =>
+	`collection:${slug}`;
+
+/** Ask the product listing to switch filter (e.g. from a collection). */
 export function selectProductFilter(filter: FilterId) {
 	window.dispatchEvent(new CustomEvent<FilterId>(EVENT, { detail: filter }));
 }

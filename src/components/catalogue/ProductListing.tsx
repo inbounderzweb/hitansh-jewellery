@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { Flip } from 'gsap/Flip';
-import { productFilters, products } from '@/content/site';
+import { productFilters } from '@/content/site';
+import { getCollection, type Collection, type Product } from '@/lib/catalogue';
 import {
 	onProductFilter,
 	selectProductFilter,
@@ -21,6 +22,8 @@ const SORTS = [
 type SortId = (typeof SORTS)[number]['id'];
 
 type Props = {
+	products: Product[];
+	collections: Collection[];
 	initialFilter?: FilterId;
 	headingLevel?: 'h2' | 'h3';
 };
@@ -30,6 +33,8 @@ type Props = {
  * ones are `hidden`) so GSAP Flip can animate between layouts.
  */
 export default function ProductListing({
+	products,
+	collections,
 	initialFilter = 'all',
 	headingLevel,
 }: Props) {
@@ -66,8 +71,14 @@ export default function ProductListing({
 		const requested = new URLSearchParams(window.location.search).get(
 			'filter',
 		);
-		const match = productFilters.find((f) => f.id === requested);
-		if (match) selectProductFilter(match.id);
+		const match =
+			productFilters.find((f) => f.id === requested)?.id ??
+			(collections.some((c) => `collection:${c.slug}` === requested)
+				? (requested as FilterId)
+				: undefined);
+		if (match) selectProductFilter(match);
+		// Only on mount: later changes come from the filter bar.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useLayoutEffect(() => {
@@ -96,11 +107,21 @@ export default function ProductListing({
 		if (sort === 'featured') return products;
 		const list = [...products].sort((a, b) => a.name.localeCompare(b.name));
 		return sort === 'name-desc' ? list.reverse() : list;
-	}, [sort]);
+	}, [sort, products]);
 
-	const visible = (categories: string[]) =>
-		filter === 'all' || categories.includes(filter);
-	const count = products.filter((p) => visible(p.categories)).length;
+	const activeCollection = filter.startsWith('collection:')
+		? collections.find((c) => `collection:${c.slug}` === filter)
+		: undefined;
+	const visible = (p: Product) => {
+		if (filter === 'all') return true;
+		if (filter.startsWith('collection:'))
+			return (
+				!!activeCollection &&
+				p.collections.includes(activeCollection.slug)
+			);
+		return (p.tags as string[]).includes(filter);
+	};
+	const count = products.filter(visible).length;
 
 	return (
 		<div className="listing">
@@ -121,6 +142,17 @@ export default function ProductListing({
 							{f.label}
 						</button>
 					))}
+					{activeCollection && (
+						<button
+							type="button"
+							className="listing__filter"
+							aria-pressed
+							onClick={() => changeFilter('all')}
+							aria-label={`${activeCollection.title} collection: show all pieces`}
+						>
+							{activeCollection.title} ×
+						</button>
+					)}
 				</div>
 				<div className="listing__tools">
 					<span className="listing__count" aria-live="polite">
@@ -149,7 +181,8 @@ export default function ProductListing({
 					<ProductCard
 						key={p.slug}
 						product={p}
-						hidden={!visible(p.categories)}
+						collection={getCollection(p, collections)}
+						hidden={!visible(p)}
 						headingLevel={headingLevel}
 					/>
 				))}
