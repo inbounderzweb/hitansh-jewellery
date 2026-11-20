@@ -1,48 +1,13 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { productPath } from '@/lib/catalogue';
+import { BANNER_SLOTS, glowRgba, type BannerRing } from '@/lib/banner';
+import CatalogueImage from '@/components/catalogue/CatalogueImage';
 
 gsap.registerPlugin(ScrollTrigger);
-
-const QUARTET_RINGS = [
-	{
-		slug: 'aurora',
-		name: 'Aurora',
-		alt: 'Aurora — White Diamond pear halo ring in Platinum',
-		image: '/images/renders/product-aurora.webp',
-		glow: 'rgba(236, 220, 178, 0.34)',
-		configurator: { gem: 'Diamond White', metal: 'Platinum' },
-	},
-	{
-		slug: 'rose-ember',
-		name: 'Rose Ember',
-		alt: 'Rose Ember — Burmese Ruby pear halo ring in Rose Gold',
-		image: '/images/renders/product-rose-ember.webp',
-		glow: 'rgba(232, 62, 98, 0.34)',
-		configurator: { gem: 'Ruby', metal: 'Rose Gold' },
-	},
-	{
-		slug: 'midnight-sea',
-		name: 'Midnight Sea',
-		alt: 'Midnight Sea — Kashmir Sapphire pear halo ring in White Gold',
-		image: '/images/renders/product-midnight-sea.webp',
-		glow: 'rgba(62, 134, 248, 0.36)',
-		configurator: { gem: 'Sapphire', metal: 'White Gold' },
-	},
-	{
-		slug: 'verdant',
-		name: 'Verdant',
-		alt: 'Verdant — Colombian Emerald pear halo ring in Yellow Gold',
-		image: '/images/renders/product-verdant.webp',
-		glow: 'rgba(26, 204, 114, 0.32)',
-		configurator: { gem: 'Emerald', metal: 'Gold' },
-	},
-] as const;
 
 /**
  * Awwwards-style Sticky 4-Ring Prismatic Unfolding Showcase (`#quartet`).
@@ -54,7 +19,9 @@ const QUARTET_RINGS = [
  *     curved 3D arcs with light-bloom reveals into a balanced four-ring constellation.
  *   - Pointer parallax; each ring links to its product page.
  */
-export default function RingQuartet() {
+export default function RingQuartet({ rings }: { rings: BannerRing[] }) {
+	// Re-run the choreography if the set of rings changes.
+	const ringKey = rings.map((r) => r.id).join('|');
 	const sectionRef = useRef<HTMLElement>(null);
 	const stageRef = useRef<HTMLDivElement>(null);
 	const ringRefs = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -527,7 +494,10 @@ export default function RingQuartet() {
 			stage.removeEventListener('pointerleave', onPointerLeave);
 			mm.revert();
 		};
-	}, []);
+	}, [ringKey]);
+
+	// The choreography is designed for exactly four rings.
+	if (rings.length < BANNER_SLOTS) return null;
 
 	return (
 		<section
@@ -610,23 +580,23 @@ export default function RingQuartet() {
 
 				{/* Floating borderless 4-ring constellation */}
 				<div ref={stageRef} className="quartet__stage">
-					{QUARTET_RINGS.map((ring, idx) => (
+					{rings.slice(0, BANNER_SLOTS).map((ring, idx) => (
 						<Link
-							key={ring.slug}
+							key={ring.id}
 							ref={(el) => {
 								ringRefs.current[idx] = el;
 							}}
-							href={productPath(ring.slug)}
+							href={ring.href}
 							className="quartet-ring"
 							style={
 								{
-									'--ring-glow': ring.glow,
+									'--ring-glow': glowRgba(ring.glow),
 								} as React.CSSProperties
 							}
 							aria-label={`View ${ring.name} details`}
 						>
 							<span className="quartet-ring__visual">
-								<Image
+								<CatalogueImage
 									src={ring.image}
 									alt={ring.alt}
 									fill

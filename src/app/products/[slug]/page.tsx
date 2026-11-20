@@ -1,36 +1,45 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { craftSteps, jewelleryCare, products, signature } from '@/content/site';
+import { craftSteps, jewelleryCare, signature } from '@/content/site';
 import {
 	getCollection,
-	getProduct,
-	productCategory,
 	productImages,
+	productMeta,
 	productPath,
 	productSpecs,
-	productSummary,
+	productSubtitle,
 	recommended,
 	sameCollection,
+	type Product,
 } from '@/lib/catalogue';
+import { getCatalogue, getPublicProduct } from '@/lib/data/catalogue';
 import ProductGallery from '@/components/catalogue/ProductGallery';
 import ProductCard from '@/components/catalogue/ProductCard';
 import EnquiryButton from '@/components/catalogue/EnquiryButton';
 
 type Props = { params: Promise<{ slug: string }> };
 
-// Only the products in the catalogue exist; anything else is a 404.
-export const dynamicParams = false;
+// Pieces added later are rendered on first visit, then cached. Unknown or
+// hidden slugs are a 404 (see `notFound()` below).
+export const revalidate = 300;
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+	const { products } = await getCatalogue();
 	return products.map((p) => ({ slug: p.slug }));
 }
 
+/** Plain-text summary for meta tags: the first paragraph of the description. */
+const summary = (p: Product) =>
+	p.description.split(/\n\s*\n/)[0]?.trim() || productSubtitle(p) || p.name;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-	const product = getProduct((await params).slug);
+	const { product } = await getPublicProduct((await params).slug);
 	if (!product) return {};
-	const title = `${product.name} — ${product.gemstone} ${product.design} in ${product.metal}`;
-	const description = productSummary(product);
+	const subtitle = productSubtitle(product);
+	const title = subtitle ? `${product.name} — ${subtitle}` : product.name;
+	const description = summary(product);
+	const image = product.images[0];
 	return {
 		title,
 		description,
@@ -40,20 +49,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 			url: productPath(product.slug),
 			title,
 			description,
-			images: [{ url: product.image, width: 1000, height: 1250 }],
+			...(image && {
+				images: [
+					{
+						url: image.url,
+						width: image.width ?? 1000,
+						height: image.height ?? 1250,
+					},
+				],
+			}),
 		},
 		twitter: { card: 'summary_large_image', title, description },
 	};
 }
 
 export default async function ProductPage({ params }: Props) {
-	const product = getProduct((await params).slug);
+	const { product, catalogue } = await getPublicProduct((await params).slug);
 	if (!product) notFound();
 
-	const collection = getCollection(product);
-	const specs = productSpecs(product);
-	const fromCollection = sameCollection(product);
-	const alsoLike = recommended(product, fromCollection);
+	const { products, collections } = catalogue;
+	const collection = getCollection(product, collections);
+	const specs = productSpecs(product, collection);
+	const fromCollection = sameCollection(product, products, collection);
+	const alsoLike = recommended(product, products, fromCollection);
+	const images = productImages(product);
+	const subtitle = productSubtitle(product);
+	const meta = productMeta(product);
+	const setting = product.specs.find((s) => s.label === 'Setting')?.value;
+	const paragraphs = product.description
+		.split(/\n\s*\n/)
+		.map((t) => t.trim())
+		.filter(Boolean);
 	const enquiryProduct = {
 		slug: product.slug,
 		name: product.name,
@@ -64,10 +90,10 @@ export default async function ProductPage({ params }: Props) {
 		'@context': 'https://schema.org',
 		'@type': 'Product',
 		name: product.name,
-		description: productSummary(product),
-		image: productImages(product).map((i) => i.src),
-		category: productCategory(product),
-		material: product.metal,
+		description: summary(product),
+		image: images.map((i) => i.url),
+		category: product.category,
+		...(product.metal && { material: product.metal }),
 		...(product.reference && { sku: product.reference }),
 		brand: { '@type': 'Brand', name: 'Hitansh Fine Jewellery' },
 	};
@@ -88,28 +114,29 @@ export default async function ProductPage({ params }: Props) {
 				</nav>
 
 				<div className="pdp__grid">
-					<ProductGallery
-						images={productImages(product)}
-						name={product.name}
-					/>
+					{images.length > 0 && (
+						<ProductGallery images={images} name={product.name} />
+					)}
 
 					<div className="pdp__info">
 						<p className="pdp__kicker">
-							{collection ? `${collection.title} · ` : ''}
-							{productCategory(product)}
+							{[collection?.title, product.category]
+								.filter(Boolean)
+								.join(' · ')}
 						</p>
 						<h1 className="pdp__title">{product.name}</h1>
-						<p className="pdp__subtitle">
-							{product.gemstone} {product.design} in{' '}
-							{product.metal}
-						</p>
+						{subtitle && (
+							<p className="pdp__subtitle">{subtitle}</p>
+						)}
 						{product.reference && (
 							<p className="pdp__ref">Ref. {product.reference}</p>
 						)}
 
-						<p className="pdp__summary">
-							{productSummary(product)}
-						</p>
+						{paragraphs.map((text, i) => (
+							<p key={i} className="pdp__summary">
+								{text}
+							</p>
+						))}
 
 						<div className="pdp__actions" id="enquire">
 							<EnquiryButton
@@ -139,20 +166,30 @@ export default async function ProductPage({ params }: Props) {
 							<details className="acc">
 								<summary>Craftsmanship &amp; materials</summary>
 								<div className="acc__body">
-									<p>
-										A {product.gemstone.toLowerCase()}{' '}
-										centre stone, framed by a{' '}
-										{signature.specs
-											.find((s) => s.label === 'Setting')
-											?.value.toLowerCase()}
-										, set in {product.metal.toLowerCase()}.
-										The design is offered in{' '}
-										{signature.specs
-											.find((s) => s.label === 'Metals')
-											?.value.replaceAll(' · ', ', ')
-											.toLowerCase()}
-										.
-									</p>
+									{product.gemstone && product.metal && (
+										<p>
+											A {product.gemstone.toLowerCase()}{' '}
+											centre stone
+											{setting
+												? `, framed by a ${setting.toLowerCase()}`
+												: ''}
+											, set in{' '}
+											{product.metal.toLowerCase()}.
+											{product.design ===
+												'Pear Halo Ring' &&
+												` The design is offered in ${signature.specs
+													.find(
+														(s) =>
+															s.label ===
+															'Metals',
+													)
+													?.value.replaceAll(
+														' · ',
+														', ',
+													)
+													.toLowerCase()}.`}
+										</p>
+									)}
 									<ol className="acc__steps">
 										{craftSteps.map((step) => (
 											<li key={step.number}>
@@ -196,7 +233,11 @@ export default async function ProductPage({ params }: Props) {
 						</div>
 						<div className="p-grid p-grid--rail">
 							{fromCollection.map((p) => (
-								<ProductCard key={p.slug} product={p} />
+								<ProductCard
+									key={p.slug}
+									product={p}
+									collection={getCollection(p, collections)}
+								/>
 							))}
 						</div>
 					</section>
@@ -215,7 +256,11 @@ export default async function ProductPage({ params }: Props) {
 						</div>
 						<div className="p-grid p-grid--rail">
 							{alsoLike.map((p) => (
-								<ProductCard key={p.slug} product={p} />
+								<ProductCard
+									key={p.slug}
+									product={p}
+									collection={getCollection(p, collections)}
+								/>
 							))}
 						</div>
 					</section>
@@ -226,9 +271,7 @@ export default async function ProductPage({ params }: Props) {
 			<div className="pdp-sticky">
 				<div>
 					<p className="pdp-sticky__name">{product.name}</p>
-					<p className="pdp-sticky__meta">
-						{product.gemstone} · {product.metal}
-					</p>
+					{meta && <p className="pdp-sticky__meta">{meta}</p>}
 				</div>
 				<EnquiryButton
 					product={enquiryProduct}

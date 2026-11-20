@@ -55,9 +55,13 @@ export function scrollToHeroSlide(slideIndex: number): void {
 	if (!heroEl) return;
 	const vh = window.innerHeight || 900;
 	const pinSpan = Math.max(vh, heroEl.offsetHeight - vh);
-	const clamped = Math.max(0, Math.min(3, slideIndex));
+	const count = Math.max(
+		1,
+		document.querySelectorAll('[data-hero-nav]').length,
+	);
+	const clamped = Math.max(0, Math.min(count - 1, slideIndex));
 	// Land squarely inside the showcase rotation window of that slide
-	const targetY = Math.round(((clamped + 0.35) / 4) * pinSpan);
+	const targetY = Math.round(((clamped + 0.35) / count) * pinSpan);
 
 	const lenis = getLenis();
 	if (lenis && !lenis.isStopped) {

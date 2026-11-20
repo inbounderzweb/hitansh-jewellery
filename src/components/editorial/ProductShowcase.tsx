@@ -1,8 +1,13 @@
 import Link from 'next/link';
 import ProductListing from '@/components/catalogue/ProductListing';
+import type { Catalogue } from '@/lib/catalogue';
 
-/** Home page product listing (`#showcase`). */
-export default function ProductShowcase() {
+/**
+ * Home page product listing (`#showcase`): the featured pieces, or every
+ * piece when none is marked as featured.
+ */
+export default function ProductShowcase({ products, collections }: Catalogue) {
+	const featured = products.filter((p) => p.featured);
 	return (
 		<section
 			id="showcase"
@@ -23,7 +28,10 @@ export default function ProductShowcase() {
 						View the full catalogue
 					</Link>
 				</div>
-				<ProductListing />
+				<ProductListing
+					products={featured.length ? featured : products}
+					collections={collections}
+				/>
 			</div>
 		</section>
 	);

@@ -5,6 +5,8 @@
  * (4 scroll-controlled slides) and the on-demand 3D Studio customizer.
  */
 
+import type { FilterId } from '@/components/editorial/filterEvents';
+
 export type Vec3Tuple = [number, number, number];
 
 export type GemPreset = {
@@ -256,7 +258,8 @@ export type HeroRingSlide = {
 	description: string;
 	gem: keyof typeof GEM_PRESETS;
 	metal: keyof typeof METAL_PRESETS;
-	filterTarget: 'diamond' | 'rose-gold' | 'gemstone' | 'yellow-gold';
+	/** Product filter the "Explore Collection" button applies. */
+	filterTarget: FilterId;
 	/** Ambient radial glow behind the ring (harmonised with Midnight Navy #0E192D) */
 	glowPrimary: string;
 	glowSecondary: string;

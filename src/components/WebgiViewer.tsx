@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import type { HeroRingSlide } from '@/lib/ringController';
 
 type Teardown = () => void;
 
@@ -16,7 +17,7 @@ let queue: Promise<unknown> = Promise.resolve();
  * `webgi` is browser-only, so it is loaded with a dynamic import inside an
  * effect and never evaluated during server rendering.
  */
-export default function WebgiViewer() {
+export default function WebgiViewer({ slides }: { slides: HeroRingSlide[] }) {
 	useEffect(() => {
 		let cancelled = false;
 
@@ -25,7 +26,7 @@ export default function WebgiViewer() {
 			try {
 				const { setupViewer } =
 					await import('@/lib/viewer/setupViewer');
-				return await setupViewer();
+				return await setupViewer(slides);
 			} catch (error: unknown) {
 				console.error('Failed to initialise the 3D viewer', error);
 				// Without WebGL the rest of the site must stay usable: lift the
@@ -50,6 +51,8 @@ export default function WebgiViewer() {
 				}
 			});
 		};
+		// Slides only change on a fresh page load; the viewer boots once.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (

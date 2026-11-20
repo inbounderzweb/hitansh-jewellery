@@ -16,6 +16,14 @@ import Testimonials from '@/components/editorial/Testimonials';
 import SocialFeed from '@/components/editorial/SocialFeed';
 import Appointment from '@/components/editorial/Appointment';
 import SiteFooter from '@/components/SiteFooter';
+import {
+	getBannerRings,
+	getCatalogue,
+	getHeroSlides,
+} from '@/lib/data/catalogue';
+
+// Catalogue edits refresh this page on demand; this is only a safety net.
+export const revalidate = 300;
 
 /**
  * Page structure
@@ -28,20 +36,25 @@ import SiteFooter from '@/components/SiteFooter';
  * Markup is rendered on the server; only the 3D viewer, header, product
  * filtering, testimonials and scroll effects run on the client.
  */
-export default function Home() {
+export default async function Home() {
+	const [catalogue, bannerRings, heroSlides] = await Promise.all([
+		getCatalogue(),
+		getBannerRings(),
+		getHeroSlides(),
+	]);
 	return (
 		<>
 			<Loader />
 			<Header />
 			<div className="stage-backdrop" aria-hidden />
-			<Sections />
+			<Sections slides={heroSlides} />
 			<CustomizerFooter />
-			<WebgiViewer />
+			<WebgiViewer slides={heroSlides} />
 			<main id="main-content" className="editorial">
 				<BrandStory />
-				<RingQuartet />
-				<Collections />
-				<ProductShowcase />
+				<RingQuartet rings={bannerRings} />
+				<Collections collections={catalogue.collections} />
+				<ProductShowcase {...catalogue} />
 				<Signature />
 				<Craftsmanship />
 				<Gallery />

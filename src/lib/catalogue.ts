@@ -1,109 +1,213 @@
 /**
- * Catalogue helpers built on the product data in `@/content/site`.
- *
- * Everything here is derived from existing product fields; no specification
- * is invented. Facts shared by every piece (setting, band) come from the
- * `signature.specs` of the single pear halo design.
+ * Catalogue types and pure helpers, safe to use on the server and in the
+ * browser. Data comes from MongoDB through `@/lib/data/catalogue`; until the
+ * starter catalogue has been imported (Admin → Dashboard), the built-in
+ * pieces in `@/content/site` are used instead (see `staticCatalogue`).
  */
 import {
-	collections,
+	collections as siteCollections,
 	productFilters,
-	products,
+	products as siteProducts,
 	signature,
-	type Product,
 	type ProductCategory,
 } from '@/content/site';
 
-export type Collection = (typeof collections)[number];
+export type { ProductCategory };
+
+export type ImageAsset = {
+	url: string;
+	/** Cloudinary public ID; absent for images bundled with the site. */
+	publicId?: string;
+	width?: number;
+	height?: number;
+	alt?: string;
+};
+
+export type Spec = { label: string; value: string };
+
+export type Product = {
+	id: string;
+	slug: string;
+	name: string;
+	reference?: string;
+	description: string;
+	/** Catalogue category shown on cards, e.g. "Rings". */
+	category: string;
+	/** Design / silhouette, e.g. "Pear Halo Ring". */
+	design?: string;
+	gemstone?: string;
+	metal?: string;
+	weight?: string;
+	dimensions?: string;
+	/** Further attributes (setting, band, carat…) in display order. */
+	specs: Spec[];
+	/** Filter tags used by the listing's filter bar. */
+	tags: ProductCategory[];
+	/** Slugs of the (visible) collections the piece belongs to. */
+	collections: string[];
+	/** First image is the primary image. */
+	images: ImageAsset[];
+	featured: boolean;
+};
+
+export type Collection = {
+	id: string;
+	slug: string;
+	/** Display number, e.g. "01". */
+	index: string;
+	title: string;
+	description: string;
+	cover?: ImageAsset;
+};
+
+export type Catalogue = { products: Product[]; collections: Collection[] };
+
+export const productTags = productFilters.filter(
+	(f): f is { id: ProductCategory; label: string } => f.id !== 'all',
+);
 
 export const productPath = (slug: string) => `/products/${slug}`;
 
-export function getProduct(slug: string): Product | undefined {
-	return products.find((p) => p.slug === slug);
+/** The first collection the product belongs to. */
+export function getCollection(product: Product, collections: Collection[]) {
+	return collections.find((c) => product.collections.includes(c.slug));
 }
 
-/** The first editorial collection whose filter matches the product. */
-export function getCollection(product: Product): Collection | undefined {
-	return collections.find((c) => product.categories.includes(c.filter));
+/** "Ruby · Rose Gold" style summary line. */
+export const productMeta = (p: Product) =>
+	[p.gemstone, p.metal].filter(Boolean).join(' · ');
+
+/** "Ruby Pear Halo Ring in Rose Gold" style subtitle. */
+export function productSubtitle(p: Product) {
+	const what = [p.gemstone, p.design].filter(Boolean).join(' ');
+	if (what && p.metal) return `${what} in ${p.metal}`;
+	return what || p.metal || '';
 }
 
-/** Catalogue category. All current pieces share one design: a ring. */
-export const productCategory = (product: Product) =>
-	product.design.toLowerCase().includes('ring') ? 'Rings' : product.design;
-
-export const categoryLabel = (id: ProductCategory) =>
-	productFilters.find((f) => f.id === id)?.label ?? id;
-
-export type GalleryImage = { src: string; alt: string };
-
-export function productImages(product: Product): GalleryImage[] {
-	const subject = `${product.name} ${product.design.toLowerCase()} — ${product.gemstone} in ${product.metal}`;
-	return [
-		{ src: product.image, alt: `${subject}, viewed from above` },
-		{
-			src: product.detailImage,
-			alt: `${subject}, close-up of the centre stone and halo`,
-		},
-	];
+export function productImages(
+	product: Product,
+): Required<Pick<ImageAsset, 'url' | 'alt'>>[] {
+	const subject = [product.name, productSubtitle(product)]
+		.filter(Boolean)
+		.join(' — ');
+	return product.images.map((img, i) => ({
+		url: img.url,
+		alt: img.alt || (i === 0 ? subject : `${subject}, view ${i + 1}`),
+	}));
 }
-
-const spec = (label: string) =>
-	signature.specs.find((s) => s.label === label)?.value;
 
 /** Specification rows, using only data that exists for this product. */
-export function productSpecs(product: Product) {
-	const collection = getCollection(product);
-	return [
+export function productSpecs(product: Product, collection?: Collection) {
+	const rows: { label: string; value: string | undefined }[] = [
 		{ label: 'Design', value: product.design },
-		{
-			label: 'Centre stone',
-			value: `${spec('Centre stone')} ${product.gemstone}`,
-		},
-		{ label: 'Setting', value: spec('Setting') },
-		{ label: 'Band', value: spec('Band') },
+		{ label: 'Gemstone', value: product.gemstone },
 		{ label: 'Metal', value: product.metal },
+		{ label: 'Weight', value: product.weight },
+		{ label: 'Dimensions', value: product.dimensions },
+		...product.specs,
 		{ label: 'Collection', value: collection?.title },
 		{ label: 'Reference', value: product.reference },
-	].filter((row): row is { label: string; value: string } => !!row.value);
-}
-
-/** A one-paragraph summary composed strictly from the product's attributes. */
-export function productSummary(product: Product) {
-	return `${product.name} sets a ${spec('Centre stone')?.toLowerCase()} ${product.gemstone.toLowerCase()} within a ${spec('Setting')?.toLowerCase()}, carried on a ${product.metal.toLowerCase()} band with ${spec('Band')?.toLowerCase()}.`;
+	];
+	return rows.filter((row): row is Spec => !!row.value);
 }
 
 /** Other pieces from the same collection. */
-export function sameCollection(product: Product, limit = 4): Product[] {
-	const collection = getCollection(product);
+export function sameCollection(
+	product: Product,
+	all: Product[],
+	collection: Collection | undefined,
+	limit = 4,
+): Product[] {
 	if (!collection) return [];
-	return products
+	return all
 		.filter(
 			(p) =>
 				p.slug !== product.slug &&
-				getCollection(p)?.id === collection.id,
+				p.collections.includes(collection.slug),
 		)
 		.slice(0, limit);
 }
 
 /**
- * Recommendations: pieces sharing the most categories (stone family or metal),
- * excluding the product itself and anything already listed in `exclude`.
+ * Recommendations: pieces sharing the most filter tags (stone family or
+ * metal), excluding the product itself and anything listed in `exclude`.
  */
 export function recommended(
 	product: Product,
+	all: Product[],
 	exclude: Product[] = [],
 	limit = 4,
 ): Product[] {
 	const skip = new Set([product.slug, ...exclude.map((p) => p.slug)]);
-	return products
+	return all
 		.filter((p) => !skip.has(p.slug))
 		.map((p, index) => ({
 			p,
 			index,
-			score: p.categories.filter((c) => product.categories.includes(c))
-				.length,
+			score: p.tags.filter((c) => product.tags.includes(c)).length,
 		}))
 		.sort((a, b) => b.score - a.score || a.index - b.index)
 		.slice(0, limit)
 		.map(({ p }) => p);
+}
+
+export const displayIndex = (i: number) => String(i + 1).padStart(2, '0');
+
+/* -------------------------------------------------------------------------- */
+/* Built-in catalogue (also the source of the one-off import)                  */
+/* -------------------------------------------------------------------------- */
+
+const signatureSpec = (label: string) =>
+	signature.specs.find((s) => s.label === label)?.value ?? '';
+
+/** The pieces bundled with the site, in the shape the catalogue uses. */
+export function staticCatalogue(): Catalogue {
+	const collections: Collection[] = siteCollections.map((c, i) => ({
+		id: c.id,
+		slug: c.id,
+		index: displayIndex(i),
+		title: c.title,
+		description: c.description,
+		cover: { url: c.image },
+	}));
+
+	const products: Product[] = siteProducts.map((p) => {
+		// A piece belongs to every collection whose theme it matches (as the
+		// original filter-based collections did); cards show the first one.
+		const memberOf = siteCollections
+			.filter((c) => p.categories.includes(c.filter))
+			.map((c) => c.id);
+		const subject = `${p.name} ${p.design.toLowerCase()} — ${p.gemstone} in ${p.metal}`;
+		return {
+			id: p.slug,
+			slug: p.slug,
+			name: p.name,
+			reference: p.reference,
+			description: `${p.name} sets a ${signatureSpec('Centre stone').toLowerCase()} ${p.gemstone.toLowerCase()} within a ${signatureSpec('Setting').toLowerCase()}, carried on a ${p.metal.toLowerCase()} band with ${signatureSpec('Band').toLowerCase()}.`,
+			category: 'Rings',
+			design: p.design,
+			gemstone: p.gemstone,
+			metal: p.metal,
+			specs: [
+				{
+					label: 'Centre stone',
+					value: `${signatureSpec('Centre stone')} ${p.gemstone}`,
+				},
+				{ label: 'Setting', value: signatureSpec('Setting') },
+				{ label: 'Band', value: signatureSpec('Band') },
+			],
+			tags: p.categories,
+			collections: memberOf,
+			images: [
+				{ url: p.image, alt: `${subject}, viewed from above` },
+				{
+					url: p.detailImage,
+					alt: `${subject}, close-up of the centre stone and halo`,
+				},
+			],
+			featured: true,
+		};
+	});
+
+	return { products, collections };
 }

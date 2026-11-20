@@ -28,9 +28,9 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { createSmoothScroll, destroySmoothScroll } from './smoothScroll';
 import {
 	GEM_PRESETS,
-	HERO_RING_SLIDES,
 	METAL_PRESETS,
 	onRequestOpenStudio,
+	type HeroRingSlide,
 	type Vec3Tuple,
 } from '@/lib/ringController';
 
@@ -241,7 +241,9 @@ class CustomMaterialConfiguratorPlugin extends MaterialConfiguratorBasePlugin {
  * window listeners, WebGL context). The home page calls it on unmount so
  * client-side navigation to other routes — and back — works without a reload.
  */
-export async function setupViewer(): Promise<() => void> {
+export async function setupViewer(
+	heroSlides: HeroRingSlide[],
+): Promise<() => void> {
 	const canvasView = byId<HTMLCanvasElement>('webgi-canvas');
 	const canvasContainer = byId('webgi-canvas-container');
 	const buttonExit = query<HTMLButtonElement>('.btn-exit');
@@ -403,7 +405,7 @@ export async function setupViewer(): Promise<() => void> {
 	const isMobileViewport = () => isMobile || window.innerWidth <= 768;
 
 	// Compute exact camera coordinates for slide 0 at t = 0
-	const slide0 = HERO_RING_SLIDES[0];
+	const slide0 = heroSlides[0];
 	const slide0Radius = isMobileViewport()
 		? slide0.camera.mobileRadius
 		: slide0.camera.radius;
@@ -477,7 +479,7 @@ export async function setupViewer(): Promise<() => void> {
 	function setActiveHeroSlideUi(nextIdx: number) {
 		if (nextIdx === activeSlideIdx) return;
 		activeSlideIdx = nextIdx;
-		const slide = HERO_RING_SLIDES[nextIdx];
+		const slide = heroSlides[nextIdx];
 
 		heroCopies.forEach((el, i) => {
 			const active = i === nextIdx;
@@ -646,7 +648,7 @@ export async function setupViewer(): Promise<() => void> {
 
 		// Normalized hero scroll progress [0..1] across the 4 connected slides
 		const heroProgress = clamp(scrollY / Math.max(1, heroPinSpan), 0, 1);
-		const totalSlides = HERO_RING_SLIDES.length;
+		const totalSlides = heroSlides.length;
 		const scaled = heroProgress * totalSlides;
 		const slideIdx = Math.min(totalSlides - 1, Math.floor(scaled));
 		const segT = clamp(scaled - slideIdx, 0, 1);
@@ -672,7 +674,7 @@ export async function setupViewer(): Promise<() => void> {
 		}
 
 		// Compute centered 360° orbital camera + smooth entrance/exit depth envelope
-		const slide = HERO_RING_SLIDES[slideIdx];
+		const slide = heroSlides[slideIdx];
 		const cam = slide.camera;
 		const mobileNow = isMobileViewport();
 		const baseRadius = mobileNow ? cam.mobileRadius : cam.radius;
@@ -791,7 +793,7 @@ export async function setupViewer(): Promise<() => void> {
 		viewer.renderEnabled = true;
 		heroActiveRender = true;
 
-		const currentSlide = HERO_RING_SLIDES[activeSlideIdx] ?? slide0;
+		const currentSlide = heroSlides[activeSlideIdx] ?? slide0;
 		studioGem = preselectGem ?? currentSlide.gem;
 		studioMetal = preselectMetal ?? currentSlide.metal;
 
@@ -929,7 +931,7 @@ export async function setupViewer(): Promise<() => void> {
 			buttonExit.style.display = 'none';
 
 			// Restore active hero slide material & camera state
-			const currentSlide = HERO_RING_SLIDES[activeSlideIdx] ?? slide0;
+			const currentSlide = heroSlides[activeSlideIdx] ?? slide0;
 			applyRingPreset(currentSlide.gem, currentSlide.metal);
 			currentPos[0] = position.x;
 			currentPos[1] = position.y;

@@ -86,9 +86,56 @@ The assets are stored in the `public/assets` directory. The ring model is
 
 ## Environment variables
 
-None. The site does not read any environment variables and needs no `.env` file.
-If you add some later, remember that only variables prefixed with `NEXT_PUBLIC_`
-are exposed to browser code.
+See `.env.example` for every variable. All are optional for the public site:
+without `MONGODB_URI` it serves the catalogue built into `src/content/site.ts`.
+Only variables prefixed with `NEXT_PUBLIC_` are exposed to browser code.
+
+## Admin panel (`/admin`)
+
+Manages products, collections, the home page banner rings, images and
+enquiries. Changes appear on the public site immediately.
+
+1. Set `MONGODB_URI` (e.g. MongoDB Atlas) and the three `CLOUDINARY_*`
+   variables in `.env.local` locally, and in the hosting provider for production.
+2. Create an administrator (asks for a password, 12+ characters; re-run to
+   reset a password, which also signs that account out everywhere):
+
+   ```bash
+   npm run admin:create -- owner@example.com "Full Name"
+   ```
+
+3. Sign in at `/admin` and choose **Import current catalogue** on the
+   dashboard. Until then the website keeps showing the built-in pieces.
+
+How it fits together:
+
+- **Data:** MongoDB collections `products`, `collections`, `enquiries`,
+  `adminUsers`, `sessions`, `rateLimits`, `meta` (`src/lib/db`). Public pages
+  read through `src/lib/data/catalogue.ts`, cached under the `catalogue` tag;
+  every admin change refreshes it (`updateTag`).
+- **Auth:** scrypt password hashes; random session tokens in an httpOnly
+  cookie scoped to `/admin`, stored only as SHA-256 hashes; login throttled
+  per email and per IP. `src/proxy.ts` redirects signed-out visitors, and every
+  admin page, data function and Server Action re-checks the session
+  (`requireAdmin`).
+- **Images:** the browser uploads straight to Cloudinary with a short-lived
+  signature from the server (the API secret never leaves the server).
+  Images removed, replaced or belonging to deleted products are deleted from
+  Cloudinary when you save. The site delivers them with `f_auto,q_auto` and
+  responsive widths.
+- **3D banner:** Admin → 3D banner manages the hero slides at the top
+  (`#view1`, collection `heroSlides`): text, centre stone and metal presets
+  that recolour the one 3D ring model, glow colour, Explore target, order and
+  visibility. Up to six visible slides; at least one must stay visible. Camera
+  moves reuse the four presets in turn. Choose **Import current slides** there
+  first; until then the built-in four are shown.
+- **Ring showcase:** Admin → Ring showcase manages the four-ring photo
+  section further down (`#quartet`). Its animation is designed for exactly four rings, so it
+  shows the first four visible rings in the list order; extra rings wait as
+  reserves, and with fewer than four visible the section is hidden. Choose
+  **Import current rings** there first; until then the built-in four are shown.
+- **Enquiries:** `/api/enquiry` stores each enquiry (rate-limited per IP) and,
+  if `ENQUIRY_WEBHOOK_URL` is set, also forwards it there for notifications.
 
 ## Updates
 

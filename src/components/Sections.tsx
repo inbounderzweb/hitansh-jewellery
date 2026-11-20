@@ -1,6 +1,7 @@
 'use client';
 
-import { HERO_RING_SLIDES } from '@/lib/ringController';
+import type { HeroRingSlide } from '@/lib/ringController';
+import type { FilterId } from '@/components/editorial/filterEvents';
 import {
 	openInConfigurator,
 	scrollToHeroSlide,
@@ -32,10 +33,9 @@ const Arrow = () => (
  * After the 4th ring completes, normal browser scrolling releases seamlessly
  * into the editorial sections below.
  */
-export default function Sections() {
-	const handleExplore = (
-		filterTarget: (typeof HERO_RING_SLIDES)[number]['filterTarget'],
-	) => {
+export default function Sections({ slides }: { slides: HeroRingSlide[] }) {
+	const total = String(slides.length).padStart(2, '0');
+	const handleExplore = (filterTarget: FilterId) => {
 		selectProductFilter(filterTarget);
 		scrollToTarget('#showcase');
 	};
@@ -46,6 +46,9 @@ export default function Sections() {
 				id="view1"
 				className="hero-showcase"
 				aria-labelledby="hero-title"
+				style={
+					{ '--hero-slides': slides.length } as React.CSSProperties
+				}
 			>
 				<div className="hero-stage">
 					{/* Architectural backdrop behind the 3D ring (z-index: 0) */}
@@ -116,7 +119,7 @@ export default function Sections() {
 					<div className="hero-ui">
 						{/* BOTTOM LEFT: Collection name, spec & short description */}
 						<div className="hero-ui__left">
-							{HERO_RING_SLIDES.map((slide, idx) => (
+							{slides.map((slide, idx) => (
 								<div
 									key={slide.id}
 									className={`hero-copy${idx === 0 ? ' is-active' : ''}`}
@@ -144,7 +147,7 @@ export default function Sections() {
 											{slide.name}
 										</h2>
 									)}
-									<div
+									{/* <div
 										className="hero-copy__spec"
 										data-hero-reveal={
 											idx === 0 ? true : undefined
@@ -158,7 +161,7 @@ export default function Sections() {
 											aria-hidden
 										/>
 										<span>{slide.spec}</span>
-									</div>
+									</div> */}
 									<p
 										className="hero-copy__desc"
 										data-hero-reveal={
@@ -181,7 +184,7 @@ export default function Sections() {
 
 						{/* BOTTOM RIGHT: Slide counter (01/04), interactive rail, Explore CTA */}
 						<div className="hero-ui__right">
-							<div
+							{/* <div
 								className="hero-counter"
 								aria-live="polite"
 								data-hero-reveal
@@ -191,21 +194,21 @@ export default function Sections() {
 								</span>
 								<span className="hero-counter__sep">/</span>
 								<span className="hero-counter__total">04</span>
-							</div>
+							</div> */}
 
 							<nav
 								className="hero-nav"
 								aria-label="Hero ring showcase slides"
 								data-hero-reveal
 							>
-								{HERO_RING_SLIDES.map((slide, idx) => (
+								{slides.map((slide, idx) => (
 									<button
 										key={slide.id}
 										type="button"
 										className={`hero-nav__item${idx === 0 ? ' is-active' : ''}`}
 										data-hero-nav={idx}
 										onClick={() => scrollToHeroSlide(idx)}
-										aria-label={`View ${slide.name} (${slide.index} of 04)`}
+										aria-label={`View ${slide.name} (${slide.index} of ${total})`}
 									>
 										<span className="hero-nav__num">
 											{slide.index}
@@ -221,7 +224,7 @@ export default function Sections() {
 							</nav>
 
 							<div className="hero-cta-stack" data-hero-reveal>
-								{HERO_RING_SLIDES.map((slide, idx) => (
+								{slides.map((slide, idx) => (
 									<div
 										key={slide.id}
 										className={`hero-cta-group${idx === 0 ? ' is-active' : ''}`}
