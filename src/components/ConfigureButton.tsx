@@ -10,7 +10,7 @@ type Props = {
 	label?: string;
 };
 
-/** Opens the 3D studio with an optional gemstone/metal pre-selected. */
+/** Opens the 3D studio with an optional gemstone/metal pre-selectd. */
 export default function ConfigureButton({
 	gem,
 	metal,
