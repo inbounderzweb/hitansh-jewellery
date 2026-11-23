@@ -14,6 +14,8 @@ import {
 	DEFAULT_MAKING_HEADING,
 	DEFAULT_MAKING_STAGES,
 	makingEyebrow,
+	DEFAULT_MAKING_GEM,
+	DEFAULT_MAKING_METAL,
 	type MakingContent,
 	type MakingSource,
 } from '@/lib/making';
@@ -222,6 +224,7 @@ async function loadHeroFromDb(): Promise<HeroRingSlide[] | null> {
 			mode: s.mode ?? '3d',
 			photos: s.photos ?? [],
 			spin: s.spin ?? [],
+			model: s.model ? { url: s.model.url } : null,
 		})),
 	);
 }
@@ -253,6 +256,7 @@ type MakingSettings = {
 	stages: string[];
 	source: MakingSource;
 	spin: string[];
+	model: MakingContent['model'];
 };
 
 async function loadMakingFromDb(): Promise<MakingSettings | null> {
@@ -266,6 +270,14 @@ async function loadMakingFromDb(): Promise<MakingSettings | null> {
 		stages: doc.stages,
 		source: doc.source,
 		spin: (doc.spin ?? []).map((f) => f.url),
+		model:
+			doc.source === 'model' && doc.model
+				? {
+						url: doc.model.url,
+						gem: doc.gem ?? DEFAULT_MAKING_GEM,
+						metal: doc.metal ?? DEFAULT_MAKING_METAL,
+					}
+				: null,
 	};
 }
 
@@ -295,10 +307,14 @@ export const getMakingSection = cache(
 		const bannerRing =
 			heroSlides.find((s) => s.spin?.length) ??
 			staticHeroSlides().find((s) => s.spin?.length);
+		// A 3D model is shown live; the banner's frames are kept as the
+		// fallback for devices without WebGL.
+		const model = saved?.source === 'model' ? saved.model : null;
 		const frames =
 			saved?.source === 'own' ? saved.spin : (bannerRing?.spin ?? []);
-		if (!frames.length) return null;
+		if (!frames.length && !model) return null;
 		return {
+			model,
 			eyebrow: saved?.eyebrow || makingEyebrow(bannerRing?.name ?? ''),
 			heading: saved?.heading || DEFAULT_MAKING_HEADING,
 			stages: DEFAULT_MAKING_STAGES.map(

@@ -247,7 +247,8 @@ export default function Sections({ slides }: { slides: HeroRingSlide[] }) {
 											<Arrow />
 										</button>
 										{!slide.photos?.length &&
-											!slide.spin?.length && (
+											!slide.spin?.length &&
+											!slide.model && (
 												<button
 													type="button"
 													className="link hero-cta__secondary"

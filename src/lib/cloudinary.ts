@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import type { ImageAsset } from '@/lib/catalogue';
+import type { ModelAsset } from '@/lib/db/types';
 
 /**
  * Cloudinary, server side only. Credentials come from the environment:
@@ -128,11 +129,172 @@ export function sanitiseImage(input: unknown): ImageAsset | null {
 	return null;
 }
 
+/* ------------------------------------------------------------ 3D models */
+
+export type ModelUploadSignature = {
+	cloudName: string;
+	apiKey: string;
+	timestamp: number;
+	folder: string;
+	signature: string;
+};
+
+/** Sub-folder for GLB models (uploaded as Cloudinary "raw" files). */
+const MODELS = 'models';
+
+/** Signature for uploading one GLB model as a raw file. */
+export function createModelUploadSignature(): ModelUploadSignature | null {
+	const c = config();
+	if (!c) return null;
+	const timestamp = Math.floor(Date.now() / 1000);
+	const folder = `${c.folder}/${MODELS}`;
+	return {
+		cloudName: c.cloudName,
+		apiKey: c.apiKey,
+		timestamp,
+		folder,
+		signature: signParams({ folder, timestamp }, c.apiSecret),
+	};
+}
+
+/** Raw files (models) are stored under this sub-folder only. */
+export const isModelPublicId = (publicId: string) =>
+	publicId.includes(`/${MODELS}/`);
+
+/**
+ * Accept a model reference sent by the admin form only if it is a GLB
+ * uploaded to our own Cloudinary models folder.
+ */
+export function sanitiseModel(input: unknown): ModelAsset | null {
+	if (!input || typeof input !== 'object') return null;
+	const m = input as Record<string, unknown>;
+	const c = config();
+	const url = typeof m.url === 'string' ? m.url : '';
+	const publicId = typeof m.publicId === 'string' ? m.publicId : '';
+	if (
+		!c ||
+		!publicId.startsWith(`${c.folder}/${MODELS}/`) ||
+		!/^[\w/.-]+$/.test(publicId) ||
+		publicId.includes('..') ||
+		!url.startsWith(
+			`https://res.cloudinary.com/${c.cloudName}/raw/upload/`,
+		) ||
+		!url.endsWith(`/${publicId}`) ||
+		!/\.glb$/i.test(url)
+	)
+		return null;
+	const name =
+		typeof m.name === 'string' ? m.name.trim().slice(0, 120) : undefined;
+	const bytes = Number.isInteger(m.bytes) ? (m.bytes as number) : undefined;
+	return {
+		url,
+		publicId,
+		...(name && { name }),
+		...(bytes && { bytes }),
+	};
+}
+
+/* -------------------------------------------------------- Media library */
+
+export type UploadedFile = {
+	publicId: string;
+	/** `image`: photos and spin frames; `raw`: GLB models. */
+	resourceType: 'image' | 'raw';
+	url: string;
+	format?: string;
+	bytes: number;
+	width?: number;
+	height?: number;
+	createdAt: string;
+};
+
+/** Pages of 500 per type: enough for a large catalogue. */
+const LIST_PAGES = 20;
+
+/**
+ * Every file uploaded to our Cloudinary folder (Admin API, server side —
+ * the secret never leaves the server). `null` when Cloudinary isn't set up.
+ */
+export async function listUploads(): Promise<UploadedFile[] | null> {
+	const c = config();
+	if (!c) return null;
+	const auth = Buffer.from(`${c.apiKey}:${c.apiSecret}`).toString('base64');
+	const list = async (resourceType: 'image' | 'raw') => {
+		const files: UploadedFile[] = [];
+		let cursor = '';
+		for (let page = 0; page < LIST_PAGES; page++) {
+			const query = new URLSearchParams({
+				prefix: `${c.folder}/`,
+				max_results: '500',
+				...(cursor && { next_cursor: cursor }),
+			});
+			const res = await fetch(
+				`https://api.cloudinary.com/v1_1/${c.cloudName}/resources/${resourceType}/upload?${query}`,
+				{
+					headers: { Authorization: `Basic ${auth}` },
+					cache: 'no-store',
+					signal: AbortSignal.timeout(15_000),
+				},
+			);
+			const data = (await res.json().catch(() => ({}))) as {
+				resources?: {
+					public_id: string;
+					secure_url: string;
+					format?: string;
+					bytes?: number;
+					width?: number;
+					height?: number;
+					created_at: string;
+				}[];
+				next_cursor?: string;
+				error?: { message?: string };
+			};
+			if (!res.ok)
+				throw new Error(
+					`Cloudinary listing failed (${res.status}): ${data.error?.message ?? ''}`,
+				);
+			for (const r of data.resources ?? [])
+				files.push({
+					publicId: r.public_id,
+					resourceType,
+					url: r.secure_url,
+					...(r.format && { format: r.format }),
+					bytes: r.bytes ?? 0,
+					...(r.width && { width: r.width }),
+					...(r.height && { height: r.height }),
+					createdAt: r.created_at,
+				});
+			cursor = data.next_cursor ?? '';
+			if (!cursor) break;
+		}
+		return files;
+	};
+	const [images, raw] = await Promise.all([list('image'), list('raw')]);
+	return [...images, ...raw];
+}
+
+/** Our own folder prefix, to check IDs sent by the admin. */
+export const isOwnPublicId = (publicId: string) => {
+	const c = config();
+	return (
+		!!c &&
+		publicId.startsWith(`${c.folder}/`) &&
+		/^[\w/.-]+$/.test(publicId) &&
+		!publicId.includes('..')
+	);
+};
+
 /** Cloudinary rejects many concurrent deletes (HTTP 420), so go a few at a time. */
 const DESTROY_CONCURRENCY = 5;
 
-/** Permanently delete uploaded images. Failures are logged, not thrown. */
-export async function destroyImages(publicIds: string[]) {
+/**
+ * Permanently delete uploaded images (or, with `raw`, models). Failures are
+ * logged, not thrown.
+ */
+export async function destroyImages(
+	publicIds: string[],
+	resourceType: 'image' | 'raw' = 'image',
+) {
 	const c = config();
 	if (!c) return;
 	const queue = [...new Set(publicIds)].filter((id) =>
@@ -154,7 +316,7 @@ export async function destroyImages(publicIds: string[]) {
 			});
 			try {
 				const res = await fetch(
-					`https://api.cloudinary.com/v1_1/${c.cloudName}/image/destroy`,
+					`https://api.cloudinary.com/v1_1/${c.cloudName}/${resourceType}/destroy`,
 					{
 						method: 'POST',
 						body,

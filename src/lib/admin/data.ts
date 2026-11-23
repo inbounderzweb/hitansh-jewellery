@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth/session';
 import {
 	ENQUIRY_STATUSES,
 	type EnquiryDoc,
+	type ModelAsset,
 	type EnquiryStatus,
 } from '@/lib/db/types';
 import type { ImageAsset, ProductCategory, Spec } from '@/lib/catalogue';
@@ -13,6 +14,8 @@ import {
 	DEFAULT_MAKING_HEADING,
 	DEFAULT_MAKING_STAGES,
 	makingEyebrow,
+	DEFAULT_MAKING_GEM,
+	DEFAULT_MAKING_METAL,
 	type MakingSource,
 } from '@/lib/making';
 
@@ -439,6 +442,8 @@ export type HeroSlideFormValues = {
 	mode: HeroMode;
 	photos: ImageAsset[];
 	spin: ImageAsset[];
+	/** 3D mode: own GLB model instead of the built-in ring. */
+	model: ModelAsset | null;
 	visible: boolean;
 };
 
@@ -463,6 +468,7 @@ export async function listHeroSlides(): Promise<HeroSlideRow[]> {
 		mode: s.mode ?? '3d',
 		photos: (s.photos ?? []).map((p) => ({ ...p })),
 		spin: (s.spin ?? []).map((f) => ({ ...f })),
+		model: s.model ? { ...s.model } : null,
 		visible: s.visible,
 	}));
 }
@@ -487,6 +493,7 @@ export async function getHeroSlideForm(
 		mode: s.mode ?? '3d',
 		photos: (s.photos ?? []).map((p) => ({ ...p })),
 		spin: (s.spin ?? []).map((f) => ({ ...f })),
+		model: s.model ? { ...s.model } : null,
 		visible: s.visible,
 	};
 }
@@ -515,6 +522,9 @@ export type MakingFormValues = {
 	stages: string[];
 	source: MakingSource;
 	spin: ImageAsset[];
+	model: ModelAsset | null;
+	gem: string;
+	metal: string;
 };
 
 /**
@@ -562,6 +572,9 @@ export async function getMakingForm(): Promise<{
 					url,
 					...(publicId && { publicId }),
 				})),
+				model: doc.model ? { ...doc.model } : null,
+				gem: doc.gem ?? DEFAULT_MAKING_GEM,
+				metal: doc.metal ?? DEFAULT_MAKING_METAL,
 			}
 		: {
 				visible: true,
@@ -570,6 +583,9 @@ export async function getMakingForm(): Promise<{
 				stages: [...DEFAULT_MAKING_STAGES],
 				source: 'banner',
 				spin: [],
+				model: null,
+				gem: DEFAULT_MAKING_GEM,
+				metal: DEFAULT_MAKING_METAL,
 			};
 	return { values, saved: !!doc, banner };
 }

@@ -20,8 +20,15 @@ import {
 	MaterialConfiguratorBasePlugin,
 	addBasePlugins,
 	EasingFunctions,
-	GroundPlugin,
+	Box3B,
+	Vector3,
 } from 'webgi';
+import {
+	ignoreModelViewerSettings,
+	keepGroundHidden,
+	prepareModelMaterials,
+	setModelVisible,
+} from './modelMaterials';
 
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -301,6 +308,138 @@ export async function setupViewer(
 	}
 
 	await manager.addFromPath('/assets/scroll-ring-pear.glb');
+	// The built-in ring's file carries the website's look; uploaded models
+	// must not change it.
+	ignoreModelViewerSettings(viewer);
+
+	// ---------------------------------  PER-SLIDE GLB MODELS
+	// A 3D slide may bring its own model (Admin → 3D banner). Each is loaded
+	// in the background, scaled and centred onto the built-in ring's bounds
+	// (so the camera moves frame it the same way), and shown only on its
+	// slide; the built-in ring is hidden meanwhile.
+	type SceneNode = {
+		visible: boolean;
+		position: {
+			multiplyScalar(k: number): unknown;
+			add(v: unknown): unknown;
+		};
+		scale: { multiplyScalar(k: number): unknown };
+		updateMatrixWorld(force?: boolean): void;
+	};
+	const modelRootChildren = () =>
+		[
+			...((
+				viewer.scene.modelRoot as unknown as {
+					modelObject?: { children?: SceneNode[] };
+				}
+			).modelObject?.children ?? []),
+		] as SceneNode[];
+	const builtInNodes = modelRootChildren();
+	// Where the hero cameras look (the built-in ring's centre stone) and the
+	// size an uploaded model is scaled to (its longest side, scene units).
+	const MODEL_FOCUS = new Vector3(0, 0.13, 0.95);
+	const MODEL_SIZE = 1.6;
+	const customModels = new Map<string, SceneNode[]>();
+	/** Stone & metal materials of uploaded models, recoloured by the presets. */
+	const customGems: RuntimeDiamondMaterial[] = [];
+	const customMetals: RuntimeMetalMaterial[] = [];
+	function prepareModel(nodes: SceneNode[], key: string) {
+		const { gems, metals } = prepareModelMaterials(viewer, nodes, key);
+		customGems.push(...(gems as RuntimeDiamondMaterial[]));
+		customMetals.push(...(metals as RuntimeMetalMaterial[]));
+	}
+	const failedModels = new Set<string>();
+	let modelQueue: Promise<void> = Promise.resolve();
+	const modelUrls = [
+		...new Set(
+			heroSlides.map((s) => s.model).filter((u): u is string => !!u),
+		),
+	];
+
+	const loadModel = (url: string) =>
+		(modelQueue = modelQueue.then(async () => {
+			if (customModels.has(url) || failedModels.has(url)) return;
+			try {
+				const before = new Set(modelRootChildren());
+				await manager.addFromPath(url);
+				const added = modelRootChildren().filter((n) => !before.has(n));
+				if (!added.length) throw new Error('empty model');
+				// Centre on the cameras' focus and scale to a common size, so
+				// the slide's camera move frames it like the built-in ring.
+				const box = new Box3B().expandByObjects(
+					added as never[],
+					true,
+					false,
+				);
+				const dims = box.getSize(new Vector3());
+				const longest = Math.max(dims.x, dims.y, dims.z);
+				const k = longest > 0 ? MODEL_SIZE / longest : 1;
+				const shift = MODEL_FOCUS.clone().sub(
+					box.getCenter(new Vector3()).multiplyScalar(k),
+				);
+				for (const node of added) {
+					node.position.multiplyScalar(k);
+					node.scale.multiplyScalar(k);
+					node.position.add(shift);
+					node.updateMatrixWorld(true);
+				}
+				setModelVisible(added, false);
+				prepareModel(added, url);
+				customModels.set(url, added);
+				const active = heroSlides[activeSlideIdx] ?? heroSlides[0];
+				if (!customizing) applyRingPreset(active.gem, active.metal);
+			} catch (error) {
+				console.error(
+					'Hero model failed to load; using the built-in ring',
+					url,
+					error,
+				);
+				failedModels.add(url);
+			}
+			shownModel = null; // re-apply visibility
+			viewer.setDirty();
+		}));
+
+	/**
+	 * What the canvas shows: a model's URL, `undefined` for the built-in
+	 * ring, `''` for nothing (the slide's own model is still loading).
+	 * `null` forces the visibility to be re-applied.
+	 */
+	let shownModel: string | undefined | null = null;
+	/**
+	 * False from a switch until the first frame with the new model has been
+	 * drawn: the canvas still holds the previous ring until then (a new
+	 * model's materials can take a moment to prepare), so it stays hidden.
+	 */
+	let freshFrame = true;
+	viewer.addEventListener('postRender', () => {
+		freshFrame = true;
+	});
+	function showModel(url: string | undefined) {
+		if (url === shownModel) return;
+		shownModel = url;
+		setModelVisible(builtInNodes, url === undefined);
+		customModels.forEach((nodes, key) =>
+			setModelVisible(nodes, key === url),
+		);
+		freshFrame = false;
+		viewer.scene.setDirty({ sceneUpdate: true });
+		viewer.setDirty();
+	}
+	/**
+	 * The model a slide shows: its own once ready (`''` while loading), the
+	 * built-in ring when it has none or its model failed.
+	 */
+	const slideModel = (i: number) => {
+		const url = heroSlides[i]?.model;
+		if (!url || failedModels.has(url)) return undefined;
+		return customModels.has(url) ? url : '';
+	};
+	/** A slide whose own model is still loading keeps the canvas hidden. */
+	const modelPending = (i: number) => {
+		const url = heroSlides[i]?.model;
+		return !!url && !customModels.has(url) && !failedModels.has(url);
+	};
 
 	// Build swatch trays right after model loads
 	configuratorPlugin.buildConfiguratorDom();
@@ -314,8 +453,7 @@ export async function setupViewer(
 
 	viewer.getPlugin(TonemapPlugin)!.contrast = 1.06;
 	viewer.setBackgroundColor(STAGE_KEY_COLOR);
-	const ground = viewer.getPlugin(GroundPlugin);
-	if (ground) ground.visible = false;
+	keepGroundHidden(viewer);
 
 	if (process.env.NODE_ENV !== 'production') {
 		(window as unknown as { __hitansh?: unknown }).__hitansh = {
@@ -352,7 +490,7 @@ export async function setupViewer(
 		const [gr, gg, gb] = hexToRgb(g.color);
 		const [mr, mg, mb] = hexToRgb(m.color);
 
-		for (const gm of gemMaterials) {
+		for (const gm of [...gemMaterials, ...customGems]) {
 			gm.color?.setRGB(gr, gg, gb);
 			gm.dispersion = g.dispersion;
 			gm.absorptionFactor = g.absorptionFactor;
@@ -375,7 +513,7 @@ export async function setupViewer(
 			pm.uniformsNeedUpdate = true;
 		}
 
-		for (const mm of metalMaterials) {
+		for (const mm of [...metalMaterials, ...customMetals]) {
 			mm.color?.setRGB(mr, mg, mb);
 			mm.metalness = m.metalness;
 			mm.roughness = m.roughness;
@@ -409,7 +547,8 @@ export async function setupViewer(
 	// Photo slides show pictures of the ring instead of the 3D model, so the
 	// canvas stays hidden (and idle) while one is on screen.
 	const isPhotoSlide = (i: number) =>
-		!!(heroSlides[i]?.photos?.length || heroSlides[i]?.spin?.length);
+		!!(heroSlides[i]?.photos?.length || heroSlides[i]?.spin?.length) ||
+		modelPending(i);
 	let photoSlideShown = isPhotoSlide(0);
 	if (photoSlideShown && canvasContainer) canvasContainer.style.opacity = '0';
 	const slide0Radius = isMobileViewport()
@@ -431,6 +570,9 @@ export async function setupViewer(
 
 	// Apply Slide 1 (Aurora: White Diamond · Platinum) on load
 	applyRingPreset(slide0.gem, slide0.metal);
+	// Load slide models in the background, in slide order.
+	modelUrls.forEach((url) => void loadModel(url));
+	showModel(slideModel(0));
 	if (stageBackdrop) {
 		stageBackdrop.style.setProperty(
 			'--stage-glow-primary',
@@ -533,6 +675,14 @@ export async function setupViewer(
 		currentTarget[2] = target.z;
 		measureHero();
 	}
+
+	// The first slide's own model is part of the first view: keep the
+	// loader up until it's ready (or has failed), up to a limit.
+	if (heroSlides[0]?.model)
+		await Promise.race([
+			loadModel(heroSlides[0].model),
+			new Promise((r) => setTimeout(r, 15000)),
+		]);
 
 	// ---------------------------------  CHOREOGRAPHED INTRO
 	const intro = gsap.timeline({ onComplete: finishIntroCamera });
@@ -708,7 +858,11 @@ export async function setupViewer(
 		}
 
 		const photoNow = isPhotoSlide(slideIdx);
-		if (photoNow) slideOpacity = 0;
+		// A slide waiting for its own model shows nothing meanwhile (never
+		// the built-in ring).
+		if (!photoNow || modelPending(slideIdx))
+			showModel(slideModel(slideIdx));
+		if (photoNow || !freshFrame) slideOpacity = 0;
 		if (photoNow) {
 			if (viewer.renderEnabled) viewer.renderEnabled = false;
 		} else if (photoSlideShown) {
@@ -814,6 +968,8 @@ export async function setupViewer(
 		studioMetal = preselectMetal ?? currentSlide.metal;
 
 		htmlDocument.classList.add('is-customizing');
+		// The studio recolours the built-in ring.
+		showModel(undefined);
 		lenis.stop();
 		buttonExit.classList.remove('scale-out-center');
 

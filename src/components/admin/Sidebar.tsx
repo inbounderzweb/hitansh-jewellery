@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
 	{ href: '/admin/hero', label: '3D banner', icon: 'hero' },
 	{ href: '/admin/making', label: 'Making section', icon: 'stages' },
 	{ href: '/admin/banner', label: 'Ring showcase', icon: 'sparkle' },
+	{ href: '/admin/media', label: 'Media library', icon: 'image' },
 	{ href: '/admin/enquiries', label: 'Enquiries', icon: 'mail' },
 ];
 

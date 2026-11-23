@@ -133,7 +133,14 @@ How it fits together:
       visitors scroll. The video itself is never uploaded.
     - **Photos:** up to six views, crossfaded while scrolling.
     - **3D ring model:** the built-in model recoloured with a stone and metal
-      preset (camera moves reuse the four presets in turn).
+      preset (camera moves reuse the four presets in turn), or the slide's
+      own **GLB model**: uploaded straight to Cloudinary as a raw file
+      (`hitansh/models`, signed upload), loaded in the background on the
+      site, centred on the cameras' focus and scaled to a common size, and
+      its stones (glass-like materials, or names like "Diamond" / "Gem" /
+      "Stone") converted to WebGi diamond materials; the slide's stone and
+      metal presets recolour its stones and metal (metalness ≥ 0.5).
+      "Customise in 3D" always uses the built-in ring.
 
     Photo and spin slides hide the 3D canvas (`src/components/HeroPhotos.tsx`).
     Choose **Import current slides** there first; until then the built-in
@@ -143,9 +150,18 @@ How it fits together:
   after the brand story (`#making`, `src/components/editorial/RingAtelier.tsx`,
   stored as `homeSections` `_id: "making"`): one ring turns centre stage, then
   splits into four rings labelled with four craft stages. Set the ring (the 3D
-  banner's first 360° slide, or its own 360° video), the small line, the
+  banner's first 360° slide, its own 360° video, or a **GLB model** with
+  a stone & metal colour — shown live in 3D by one WebGi canvas over the
+  section, `src/lib/viewer/makingViewer.ts`, with the model cloned into the
+  four rings; the banner's frames are the fallback without WebGL), the small line, the
   heading (`*words*` in gold italics), the four stage names, and visibility.
   Until it is saved there it shows the banner's 360° ring with built-in text.
+- **Media library:** Admin → Media library (`src/lib/admin/media.ts`) lists
+  every file in the Cloudinary folder (Admin API, server side) with where it
+  is used; a 360° spin's frames show as one entry. Unused files can be
+  deleted (the server re-checks the database first); files uploaded in the
+  last hour are left out of "Delete unused files", and bulk delete is off
+  when nothing at all appears in use (a wrong database connection).
 - **Ring showcase:** Admin → Ring showcase manages the four-ring photo
   section further down (`#quartet`). Its animation is designed for exactly four rings, so it
   shows the first four visible rings in the list order; extra rings wait as

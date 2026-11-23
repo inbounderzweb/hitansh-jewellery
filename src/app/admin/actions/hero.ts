@@ -8,7 +8,12 @@ import type { HeroSlideDoc } from '@/lib/db/types';
 import { CATALOGUE_TAG } from '@/lib/data/catalogue';
 import { STARTER_HERO_SLIDES } from '@/lib/hero';
 import type { ImageAsset } from '@/lib/catalogue';
-import { sanitiseImage } from '@/lib/cloudinary';
+import {
+	createModelUploadSignature,
+	sanitiseImage,
+	sanitiseModel,
+	type ModelUploadSignature,
+} from '@/lib/cloudinary';
 import { destroyIfUnused } from '@/lib/admin/images';
 import { parseHeroSlide, validateHeroSlide } from '@/lib/admin/validation';
 import type { ActionResult } from './catalogue';
@@ -41,6 +46,7 @@ export async function importHeroSlides(): Promise<ActionResult> {
 	const docs: HeroSlideDoc[] = STARTER_HERO_SLIDES.map((s, position) => ({
 		_id: new ObjectId(),
 		...s,
+		model: null,
 		visible: true,
 		position,
 		createdAt: now,
@@ -74,6 +80,9 @@ export async function saveHeroSlide(
 	if (spin.some((f) => !f))
 		errors.spin =
 			'The spin frames could not be verified. Add the video again.';
+	const model = input.model ? sanitiseModel(input.model) : null;
+	if (input.model && !model)
+		errors.model = 'The 3D model could not be verified. Upload it again.';
 	if (Object.keys(errors).length)
 		return fail('Please correct the highlighted fields.', errors);
 
@@ -105,6 +114,7 @@ export async function saveHeroSlide(
 			url,
 			...(publicId && { publicId }),
 		})),
+		model,
 		visible: input.visible,
 		updatedAt: now,
 	};
@@ -114,10 +124,16 @@ export async function saveHeroSlide(
 		await heroSlides.updateOne({ _id: existing._id }, { $set: fields });
 		savedId = existing._id;
 		const kept = new Set(
-			[...fields.photos, ...fields.spin].map((p) => p.publicId),
+			[...fields.photos, ...fields.spin, ...(model ? [model] : [])].map(
+				(p) => p.publicId,
+			),
 		);
 		await destroyIfUnused(
-			[...(existing.photos ?? []), ...(existing.spin ?? [])]
+			[
+				...(existing.photos ?? []),
+				...(existing.spin ?? []),
+				...(existing.model ? [existing.model] : []),
+			]
 				.map((p) => p.publicId)
 				.filter((id) => !kept.has(id)),
 		);
@@ -155,7 +171,11 @@ export async function deleteHeroSlide(id: string): Promise<ActionResult> {
 		);
 	await heroSlides.deleteOne({ _id });
 	await destroyIfUnused(
-		[...(slide.photos ?? []), ...(slide.spin ?? [])].map((p) => p.publicId),
+		[
+			...(slide.photos ?? []),
+			...(slide.spin ?? []),
+			...(slide.model ? [slide.model] : []),
+		].map((p) => p.publicId),
 	);
 	refreshPublic();
 	return { ok: true };
@@ -209,4 +229,20 @@ export async function setHeroSlideVisible(
 	);
 	refreshPublic();
 	return { ok: true };
+}
+
+/** Short-lived signature for uploading one GLB model to Cloudinary. */
+export async function signModelUpload(): Promise<
+	| { ok: true; signature: ModelUploadSignature }
+	| { ok: false; message: string }
+> {
+	await requireAdmin();
+	const signature = createModelUploadSignature();
+	return signature
+		? { ok: true, signature }
+		: {
+				ok: false,
+				message:
+					'Uploads are not configured. Set the CLOUDINARY_* environment variables.',
+			};
 }

@@ -5,7 +5,7 @@ import { requireAdmin } from '@/lib/auth/session';
 import { collections as db } from '@/lib/db/mongo';
 import type { ImageAsset } from '@/lib/catalogue';
 import { CATALOGUE_TAG } from '@/lib/data/catalogue';
-import { sanitiseImage } from '@/lib/cloudinary';
+import { sanitiseImage, sanitiseModel } from '@/lib/cloudinary';
 import { destroyIfUnused } from '@/lib/admin/images';
 import { parseMaking, validateMaking } from '@/lib/admin/validation';
 import type { ActionResult } from './catalogue';
@@ -21,6 +21,9 @@ export async function saveMaking(raw: unknown): Promise<ActionResult> {
 	if (spin.some((f) => !f))
 		errors.spin =
 			'The spin frames could not be verified. Add the video again.';
+	const model = input.model ? sanitiseModel(input.model) : null;
+	if (input.model && !model)
+		errors.model = 'The 3D model could not be verified. Upload it again.';
 	if (Object.keys(errors).length)
 		return {
 			ok: false,
@@ -30,10 +33,12 @@ export async function saveMaking(raw: unknown): Promise<ActionResult> {
 
 	const { homeSections } = await db();
 	const existing = await homeSections.findOne({ _id: 'making' });
-	const frames = (spin as ImageAsset[]).map(({ url, publicId }) => ({
-		url,
-		...(publicId && { publicId }),
-	}));
+	const asFrames = (list: (ImageAsset | null)[]) =>
+		(list as ImageAsset[]).map(({ url, publicId }) => ({
+			url,
+			...(publicId && { publicId }),
+		}));
+	const frames = asFrames(spin);
 	await homeSections.updateOne(
 		{ _id: 'making' },
 		{
@@ -44,15 +49,26 @@ export async function saveMaking(raw: unknown): Promise<ActionResult> {
 				stages: input.stages,
 				source: input.source,
 				spin: frames,
+				model,
+				gem: input.gem,
+				metal: input.metal,
+				modelSpin: [],
+				rendered: null,
 				updatedAt: new Date(),
 			},
 		},
 		{ upsert: true },
 	);
 	if (existing) {
-		const kept = new Set(frames.map((f) => f.publicId));
+		const kept = new Set(
+			[...frames, ...(model ? [model] : [])].map((f) => f.publicId),
+		);
 		await destroyIfUnused(
-			(existing.spin ?? [])
+			[
+				...(existing.spin ?? []),
+				...(existing.modelSpin ?? []),
+				...(existing.model ? [existing.model] : []),
+			]
 				.map((f) => f.publicId)
 				.filter((id) => !kept.has(id)),
 		);

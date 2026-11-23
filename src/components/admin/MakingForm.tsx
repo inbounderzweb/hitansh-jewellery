@@ -12,10 +12,12 @@ import {
 	validateMaking,
 	type FieldErrors,
 } from '@/lib/admin/validation';
-import { SPIN_FRAMES } from '@/lib/hero';
+import { GEM_OPTIONS, METAL_OPTIONS, SPIN_FRAMES } from '@/lib/hero';
 import { MAKING_LIMITS, makingEyebrow, splitAccent } from '@/lib/making';
 import { Field, TextArea } from './Field';
 import Icon from './Icon';
+import ModelPreview from './ModelPreview';
+import ModelUploader from './ModelUploader';
 import SpinMaker from './SpinMaker';
 import Toggle from './Toggle';
 
@@ -91,7 +93,11 @@ export default function MakingForm({
 	};
 
 	const frames =
-		values.source === 'own' ? values.spin : (banner?.frames ?? []);
+		values.source === 'own'
+			? values.spin
+			: values.source === 'model'
+				? []
+				: (banner?.frames ?? []);
 	const preview = frames[0];
 
 	return (
@@ -114,6 +120,7 @@ export default function MakingForm({
 							[
 								['banner', 'Same ring as the 3D banner'],
 								['own', 'Its own 360° video'],
+								['model', '3D model (GLB)'],
 							] as const
 						).map(([source, label]) => (
 							<label
@@ -150,6 +157,70 @@ export default function MakingForm({
 								</>
 							)}
 						</p>
+					) : values.source === 'model' ? (
+						<>
+							<p className="a-hint a-hint--top a-hint--after">
+								Upload the ring’s 3D model (.glb) and choose the
+								stone and metal colours. The website shows the
+								model live in 3D, with its diamond look — no
+								conversion needed.
+							</p>
+							<div className="a-field" data-field="model">
+								<label>3D model</label>
+								<ModelUploader
+									model={values.model}
+									error={errors.model}
+									onUploaded={(publicId) =>
+										unsaved.add(publicId)
+									}
+									onChange={(model) => set('model', model)}
+								/>
+							</div>
+							<div className="a-grid-2">
+								{(
+									[
+										['gem', 'Stone colour', GEM_OPTIONS],
+										[
+											'metal',
+											'Metal colour',
+											METAL_OPTIONS,
+										],
+									] as const
+								).map(([key, label, options]) => (
+									<div
+										key={key}
+										className="a-field"
+										data-field={key}
+									>
+										<label htmlFor={`making-${key}`}>
+											{label}
+										</label>
+										<select
+											id={`making-${key}`}
+											className="a-select"
+											value={values[key]}
+											onChange={(e) =>
+												set(key, e.target.value)
+											}
+										>
+											{options.map((o) => (
+												<option
+													key={o.value}
+													value={o.value}
+												>
+													{o.label}
+												</option>
+											))}
+										</select>
+										{errors[key] && (
+											<p className="a-error" role="alert">
+												{errors[key]}
+											</p>
+										)}
+									</div>
+								))}
+							</div>
+						</>
 					) : (
 						<>
 							<p className="a-hint a-hint--top a-hint--after">
@@ -229,6 +300,15 @@ export default function MakingForm({
 					<h2 id="sec-preview" className="a-card__title">
 						Preview
 					</h2>
+					{values.source === 'model' && values.model && (
+						<>
+							<ModelPreview url={values.model.url} />
+							<p className="a-hint">
+								Drag to turn. On the website the stones and
+								metal take the colours chosen above.
+							</p>
+						</>
+					)}
 					<div className="a-making">
 						<p className="a-making__eyebrow">
 							{values.eyebrow || 'Small line'}

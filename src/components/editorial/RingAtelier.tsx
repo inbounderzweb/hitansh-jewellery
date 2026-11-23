@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { splitAccent, type MakingContent } from '@/lib/making';
 import { loadSpinFrames, nearestFrame } from '@/lib/spin/frames';
+import type { MakingViewer, RingPose } from '@/lib/viewer/makingViewer';
 
 const clamp = (v: number, min = 0, max = 1) => Math.min(max, Math.max(min, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -23,20 +24,23 @@ const TURNS = 1.25;
  *
  * Managed in Admin → Making section; by default it uses the 360° spin
  * frames of the first spin slide of the hero banner
- * (Admin → 3D banner), so it always shows the client's own ring.
+ * (Admin → 3D banner), so it always shows the client's own ring. With a GLB
+ * model, the rings are drawn live in 3D (one WebGi canvas over the section);
+ * the frames are then only the fallback when 3D can't run.
  */
 export default function RingAtelier({
 	eyebrow,
 	heading,
 	stages,
 	frames: urls,
+	model,
 }: MakingContent) {
 	const sectionRef = useRef<HTMLElement>(null);
-	const key = urls.join('|');
+	const key = [model?.url, model?.gem, model?.metal, ...urls].join('|');
 
 	useEffect(() => {
 		const section = sectionRef.current;
-		if (!section || !urls.length) return;
+		if (!section || (!urls.length && !model)) return;
 		const still = window.matchMedia('(prefers-reduced-motion: reduce)');
 		const q = <T extends Element>(s: string) =>
 			Array.from(section.querySelectorAll<T>(s));
@@ -60,12 +64,75 @@ export default function RingAtelier({
 			(canvas) => ({ canvas, ctx: canvas.getContext('2d')!, shown: -1 }),
 		);
 
-		const loader = loadSpinFrames(
-			urls,
-			() => canvases.forEach((c) => (c.shown = -1)),
-			FRAME_WIDTH,
-		);
+		const sticky = section.querySelector<HTMLElement>(
+			'[data-atelier-sticky]',
+		)!;
+		const glCanvas =
+			section.querySelector<HTMLCanvasElement>('[data-atelier-gl]');
+
+		// The spin frames: the ring itself, or — with a 3D model — only the
+		// fallback when 3D can't run (never shown while the model loads, so
+		// another ring doesn't flash first).
+		let loader: ReturnType<typeof loadSpinFrames> | null = null;
+		const showFrames = () => {
+			loader ??= loadSpinFrames(
+				urls,
+				() => canvases.forEach((c) => (c.shown = -1)),
+				FRAME_WIDTH,
+			);
+		};
 		const n = urls.length;
+
+		// Live 3D: the model starts loading once the page has settled (or
+		// when the section comes near), so it's ready when the visitor
+		// arrives.
+		let live: MakingViewer | null = null;
+		let cancelled = false;
+		let started = false;
+		const start = () => {
+			if (started || !model || !glCanvas) return;
+			started = true;
+			startObserver?.disconnect();
+			void import('@/lib/viewer/makingViewer')
+				.then(({ createMakingViewer }) =>
+					createMakingViewer(glCanvas, model, rings.length),
+				)
+				.then((v) => {
+					if (cancelled) return v.dispose();
+					live = v;
+					measure();
+					section.classList.add('is-live');
+				})
+				.catch((error) => {
+					console.error(
+						'Making: 3D model unavailable, showing the spin frames',
+						error,
+					);
+					if (!cancelled) showFrames();
+				});
+		};
+		const startObserver =
+			model && glCanvas
+				? new IntersectionObserver(
+						(entries) => {
+							if (entries.some((e) => e.isIntersecting)) start();
+						},
+						{ rootMargin: '200% 0px' },
+					)
+				: null;
+		startObserver?.observe(section);
+		// After the hero's intro, so the two don't compete for the network.
+		let idle = 0;
+		const later = () => (idle = window.setTimeout(start, 2500));
+		if (model && glCanvas) {
+			if (document.readyState === 'complete') later();
+			else window.addEventListener('load', later, { once: true });
+		} else showFrames();
+		// Resting boxes of the hero ring and the four rings, relative to the
+		// sticky frame (the 3D canvas covers it).
+		type Box = { x: number; y: number; size: number };
+		let heroBox: Box = { x: 0, y: 0, size: 0 };
+		let slots: Box[] = [];
 
 		// Canvas resolution and each ring's offset from the stage centre
 		// (offsetLeft/Top ignore transforms, so this is the resting layout).
@@ -87,12 +154,34 @@ export default function RingAtelier({
 				r.dx = cx - (r.el.offsetLeft + r.el.offsetWidth / 2);
 				r.dy = cy - (r.el.offsetTop + r.el.offsetHeight / 2);
 			}
+			if (!live) return;
+			const frame = sticky.getBoundingClientRect();
+			const box = (el: HTMLElement): Box => {
+				const r = el.getBoundingClientRect();
+				return {
+					x: r.left + r.width / 2 - frame.left,
+					y: r.top + r.height / 2 - frame.top,
+					size: el.offsetWidth,
+				};
+			};
+			// Read without this frame's scroll transforms.
+			const saved = [hero, ...rings.map((r) => r.el)].map(
+				(el) => el.style.transform,
+			);
+			hero.style.transform = 'translate(-50%, -50%)';
+			rings.forEach((r) => (r.el.style.transform = 'none'));
+			heroBox = box(heroCanvas);
+			slots = rings.map((r) => box(r.canvas));
+			[hero, ...rings.map((r) => r.el)].forEach(
+				(el, i) => (el.style.transform = saved[i]),
+			);
 		};
 		measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(stage);
 
 		const draw = (c: (typeof canvases)[number], pos: number) => {
+			if (live || !loader || !n) return;
 			const i = ((Math.round(pos) % n) + n) % n;
 			if (i === c.shown) return;
 			const img = nearestFrame(loader.frames, i);
@@ -112,22 +201,26 @@ export default function RingAtelier({
 			last = now;
 			const rect = section.getBoundingClientRect();
 			const vh = window.innerHeight || 900;
-			if (rect.bottom < -vh || rect.top > vh * 2) return; // off screen
+			const near = !(rect.bottom < -vh || rect.top > vh * 2);
+			live?.setActive(near && rect.top < vh && rect.bottom > 0);
+			if (!near) return; // off screen
 			const moving = !still.matches;
 			const p = moving
 				? clamp(-rect.top / Math.max(1, rect.height - vh))
 				: 1;
 
-			// The turn eases towards the scroll position for a weighty feel.
-			const target = p * TURNS * n;
+			// The turn (in full turns) eases towards the scroll position for
+			// a weighty feel.
+			const target = p * TURNS;
 			turn = moving ? lerp(turn, target, 1 - Math.exp(-10 * dt)) : 0;
+			if (Math.abs(turn - target) < 1e-5) turn = target;
 
 			// Act 1: the single ring, sinking back as the four take over.
 			const out = span(p, 0.24, 0.38);
 			hero.style.opacity = (1 - out).toFixed(3);
 			hero.style.visibility = out >= 1 ? 'hidden' : 'visible';
 			hero.style.transform = `translate(-50%, -50%) translateY(${lerp(4, 0, span(p, 0, 0.3)).toFixed(2)}vh) scale(${lerp(1, 0.5, out).toFixed(4)})`;
-			if (out < 1) draw(canvases[0], turn);
+			if (out < 1) draw(canvases[0], turn * n);
 
 			// The heading rises in with the four rings.
 			const h = span(p, 0.2, 0.36);
@@ -135,6 +228,8 @@ export default function RingAtelier({
 			heading.style.transform = `translateY(${lerp(28, 0, h).toFixed(1)}px)`;
 
 			// Act 2: the four rings fan out from the centre; Act 3: labels.
+			const poses: RingPose[] = [];
+			const heroY = heroBox.y + (lerp(4, 0, span(p, 0, 0.3)) * vh) / 100;
 			rings.forEach((r, k) => {
 				const e = span(p, 0.27 + k * 0.025, 0.45 + k * 0.025);
 				r.el.style.opacity = e.toFixed(3);
@@ -143,29 +238,54 @@ export default function RingAtelier({
 				r.label.style.opacity = l.toFixed(3);
 				r.label.style.transform = `translateY(${lerp(14, 0, l).toFixed(1)}px)`;
 				// Each ring shows the piece from a different side.
-				if (e > 0) draw(canvases[k + 1], turn + (k * n) / 4);
+				if (e > 0) draw(canvases[k + 1], (turn + k / 4) * n);
+				// Live 3D: the four rings start as one (same place, size and
+				// side) and separate from it.
+				const slot = slots[k];
+				if (slot)
+					poses.push({
+						x: lerp(heroBox.x, slot.x, e),
+						y: lerp(heroY, slot.y, e),
+						size: lerp(heroBox.size, slot.size, e),
+						angle: (turn + (k / 4) * e) * Math.PI * 2,
+						visible: k === 0 || e > 0.001,
+					});
 			});
+			live?.setPoses(poses);
 		};
 		frame = requestAnimationFrame(tick);
 
 		return () => {
 			cancelAnimationFrame(frame);
 			observer.disconnect();
-			loader.cancel();
+			loader?.cancel();
+			cancelled = true;
+			window.clearTimeout(idle);
+			window.removeEventListener('load', later);
+			startObserver?.disconnect();
+			live?.dispose();
+			section.classList.remove('is-live');
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the frame URLs
 	}, [key]);
 
-	if (!urls.length) return null;
+	if (!urls.length && !model) return null;
 
 	return (
 		<section
 			ref={sectionRef}
 			id="making"
-			className="atelier"
+			className={model ? 'atelier atelier--model' : 'atelier'}
 			aria-labelledby="atelier-title"
 		>
-			<div className="atelier__sticky">
+			<div className="atelier__sticky" data-atelier-sticky>
+				{model && (
+					<canvas
+						className="atelier__gl"
+						data-atelier-gl
+						aria-hidden
+					/>
+				)}
 				<div className="atelier__heading" data-atelier-heading>
 					<p className="eyebrow">{eyebrow}</p>
 					<h2 id="atelier-title" className="display atelier__title">
