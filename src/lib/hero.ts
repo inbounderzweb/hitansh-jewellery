@@ -67,6 +67,8 @@ export type HeroSlideData = {
 	mode: HeroMode;
 	photos: { url: string; alt?: string }[];
 	spin: { url: string }[];
+	/** 3D mode: a GLB model replacing the built-in ring. */
+	model?: { url: string } | null;
 };
 
 const CAMERAS = HERO_RING_SLIDES.map((s) => s.camera);
@@ -102,6 +104,7 @@ export function toHeroSlides(items: HeroSlideData[]): HeroRingSlide[] {
 			s.mode === 'spin' && s.spin.length
 				? s.spin.slice(0, SPIN_MAX_FRAMES).map((f) => f.url)
 				: undefined;
+		const model = s.mode === '3d' && s.model?.url ? s.model.url : undefined;
 		const camera =
 			CAMERAS[(photos || spin ? 0 : cameraTurn++) % CAMERAS.length];
 		return {
@@ -118,6 +121,7 @@ export function toHeroSlides(items: HeroSlideData[]): HeroRingSlide[] {
 			camera,
 			...(photos && { photos }),
 			...(spin && { spin }),
+			...(model && { model }),
 		};
 	});
 }

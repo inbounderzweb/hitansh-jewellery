@@ -254,6 +254,9 @@ export type MakingInput = {
 	stages: string[];
 	source: MakingSource;
 	spin: ImageInput[];
+	model: HeroSlideInput['model'];
+	gem: string;
+	metal: string;
 };
 
 export function parseMaking(raw: unknown): MakingInput {
@@ -269,10 +272,17 @@ export function parseMaking(raw: unknown): MakingInput {
 		stages: Array.from({ length: MAKING_STAGES }, (_, i) =>
 			text(stages[i], MAKING_LIMITS.stage + 1),
 		),
-		source: r.source === 'own' ? 'own' : 'banner',
+		source:
+			r.source === 'own' || r.source === 'model' ? r.source : 'banner',
 		spin: Array.isArray(r.spin)
 			? (r.spin as ImageInput[]).slice(0, SPIN_MAX_FRAMES + 1)
 			: [],
+		model:
+			r.model && typeof r.model === 'object'
+				? (r.model as MakingInput['model'])
+				: null,
+		gem: text(r.gem, 40),
+		metal: text(r.metal, 40),
 	};
 }
 
@@ -297,6 +307,12 @@ export function validateMaking(m: MakingInput): FieldErrors {
 		else if (m.spin.length > SPIN_MAX_FRAMES)
 			e.spin = `A spin can have up to ${SPIN_MAX_FRAMES} frames.`;
 	}
+	if (!GEM_OPTIONS.some((g) => g.value === m.gem)) e.gem = 'Choose a stone.';
+	if (!METAL_OPTIONS.some((x) => x.value === m.metal))
+		e.metal = 'Choose a metal.';
+	if (m.source === 'model') {
+		if (!m.model) e.model = 'Upload the ring’s 3D model (.glb).';
+	}
 	return e;
 }
 
@@ -313,6 +329,13 @@ export type HeroSlideInput = {
 	mode: HeroMode;
 	photos: ImageInput[];
 	spin: ImageInput[];
+	/** 3D mode: own GLB model (checked server-side in `sanitiseModel`). */
+	model: {
+		url: string;
+		publicId: string;
+		name?: string;
+		bytes?: number;
+	} | null;
 	visible: boolean;
 };
 
@@ -336,6 +359,10 @@ export function parseHeroSlide(raw: unknown): HeroSlideInput {
 		spin: Array.isArray(r.spin)
 			? (r.spin as ImageInput[]).slice(0, SPIN_MAX_FRAMES + 1)
 			: [],
+		model:
+			r.model && typeof r.model === 'object'
+				? (r.model as HeroSlideInput['model'])
+				: null,
 		visible: r.visible === true,
 	};
 }

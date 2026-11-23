@@ -270,6 +270,11 @@ export type HeroRingSlide = {
 	 * by scrolling. The 3D ring is hidden.
 	 */
 	spin?: string[];
+	/**
+	 * 3D slide with its own model: URL of a GLB shown instead of the
+	 * built-in ring (auto-sized to it; keeps the model's own materials).
+	 */
+	model?: string;
 	/** Ambient radial glow behind the ring (harmonised with Midnight Navy #0E192D) */
 	glowPrimary: string;
 	glowSecondary: string;

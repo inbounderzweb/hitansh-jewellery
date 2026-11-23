@@ -25,6 +25,8 @@ import { Field, TextArea } from './Field';
 import { HeroSwatch } from './HeroTable';
 import Icon from './Icon';
 import ImageManager from './ImageManager';
+import ModelPreview from './ModelPreview';
+import ModelUploader from './ModelUploader';
 import SpinMaker from './SpinMaker';
 import Toggle from './Toggle';
 
@@ -39,6 +41,7 @@ export const EMPTY_SLIDE: HeroSlideFormValues = {
 	mode: 'spin',
 	photos: [],
 	spin: [],
+	model: null,
 	visible: true,
 };
 
@@ -299,10 +302,27 @@ export default function HeroSlideForm({
 						</>
 					) : (
 						<>
-							<p className="a-hint a-hint--top a-hint--after">
-								Shows the built-in 3D ring model, recoloured
-								with the stone and metal below.
-							</p>
+							<div className="a-field" data-field="model">
+								<label>3D model</label>
+								<p className="a-hint a-hint--after">
+									Upload the ring’s own 3D model (.glb) to
+									show it instead of the built-in ring. It is
+									sized and centred automatically; its stones
+									become sparkling diamonds and the stone and
+									metal colours below are applied to it.
+									Stones are recognised by a glass-like
+									material or a material name such as
+									“Diamond”, “Gem” or “Stone”.
+								</p>
+								<ModelUploader
+									model={values.model}
+									error={errors.model}
+									onUploaded={(publicId) =>
+										unsaved.add(publicId)
+									}
+									onChange={(model) => set('model', model)}
+								/>
+							</div>
 							<div className="a-grid-2">
 								<Select
 									id="slide-gem"
@@ -429,6 +449,8 @@ export default function HeroSlideForm({
 									sizes="280px"
 								/>
 							</span>
+						) : values.mode === '3d' && values.model ? (
+							<ModelPreview url={values.model.url} />
 						) : (
 							<HeroSwatch
 								gem={values.gem}

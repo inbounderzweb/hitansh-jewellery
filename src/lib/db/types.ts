@@ -93,6 +93,15 @@ export type MetaDoc = {
 	initialisedAt: Date;
 };
 
+/** An uploaded 3D model (GLB), stored on Cloudinary as a raw file. */
+export type ModelAsset = {
+	url: string;
+	publicId: string;
+	/** Original file name, for the admin. */
+	name?: string;
+	bytes?: number;
+};
+
 /** The home page's "Making" section (a single document). */
 export type MakingDoc = {
 	_id: 'making';
@@ -101,9 +110,22 @@ export type MakingDoc = {
 	heading: string;
 	/** Titles of the four craft stages, in order. */
 	stages: string[];
-	/** `banner`: the 3D banner's first 360° ring; `own`: `spin` below. */
-	source: 'banner' | 'own';
+	/**
+	 * `banner`: the 3D banner's first 360° ring; `own`: `spin` (from a
+	 * video); `model`: `model`, shown live in 3D.
+	 */
+	source: 'banner' | 'own' | 'model';
 	spin: ImageAsset[];
+	/** Own GLB model, with the stone & metal presets it is shown in. */
+	model?: ModelAsset | null;
+	gem?: string;
+	metal?: string;
+	/**
+	 * Legacy: frames once rendered from the model. Cleared (and deleted
+	 * from Cloudinary) on the next save.
+	 */
+	modelSpin?: ImageAsset[];
+	rendered?: { model: string; gem: string; metal: string } | null;
 	updatedAt: Date;
 };
 
@@ -147,6 +169,8 @@ export type HeroSlideDoc = {
 	photos?: ImageAsset[];
 	/** Frames of one full turn for a spin slide, in order. */
 	spin?: ImageAsset[];
+	/** 3D mode: own GLB model (Cloudinary raw file) instead of the built-in ring. */
+	model?: ModelAsset | null;
 	visible: boolean;
 	position: number;
 	createdAt: Date;

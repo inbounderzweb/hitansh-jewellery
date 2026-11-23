@@ -169,7 +169,9 @@ export default function HeroTable({ rows }: { rows: HeroSlideRow[] }) {
 										? `360° spin · ${r.spin.length} frames`
 										: r.mode === 'photos'
 											? `Photos · ${r.photos.length} view${r.photos.length === 1 ? '' : 's'}`
-											: `3D · ${material(r.gem, r.metal)}`}
+											: r.model
+												? `3D · own model (${r.model.name || 'GLB'})`
+												: `3D · ${material(r.gem, r.metal)}`}
 								</td>
 								<td>
 									{live.includes(r.id) ? (
